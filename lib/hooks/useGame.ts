@@ -12,6 +12,8 @@ interface UseGameResult {
   error: string | null
   refetch: () => Promise<void>
   setGameState: (game: Game, moves: Move[]) => void
+  addOptimisticMove: (x: number, y: number, color: PlayerColor) => void
+  removeOptimisticMove: (x: number, y: number) => void
 }
 
 export function useGame(code: string, playerId: string | null): UseGameResult {
@@ -76,6 +78,40 @@ export function useGame(code: string, playerId: string | null): UseGameResult {
     updatePlayerColor(newGame, playerId)
   }, [playerId, updatePlayerColor])
 
+  // Optimistic move - immediately add stone to board
+  const addOptimisticMove = useCallback((x: number, y: number, color: PlayerColor) => {
+    const optimisticMove: Move = {
+      id: `optimistic-${Date.now()}`,
+      game_id: game?.id || '',
+      player_color: color,
+      move_type: 'place',
+      x,
+      y,
+      move_number: moves.length + 1,
+      created_at: new Date().toISOString(),
+    }
+    setMoves(prev => [...prev, optimisticMove])
+    // Also toggle turn optimistically
+    if (game) {
+      setGame(prev => prev ? {
+        ...prev,
+        current_turn: prev.current_turn === 'black' ? 'white' : 'black'
+      } : null)
+    }
+  }, [game, moves.length])
+
+  // Remove optimistic move if API call fails
+  const removeOptimisticMove = useCallback((x: number, y: number) => {
+    setMoves(prev => prev.filter(m => !(m.x === x && m.y === y && m.id.startsWith('optimistic'))))
+    // Revert turn
+    if (game) {
+      setGame(prev => prev ? {
+        ...prev,
+        current_turn: prev.current_turn === 'black' ? 'white' : 'black'
+      } : null)
+    }
+  }, [game])
+
   const isMyTurn = game?.status === 'active' && game?.current_turn === playerColor
 
   return {
@@ -87,5 +123,7 @@ export function useGame(code: string, playerId: string | null): UseGameResult {
     error,
     refetch: fetchGame,
     setGameState,
+    addOptimisticMove,
+    removeOptimisticMove,
   }
 }

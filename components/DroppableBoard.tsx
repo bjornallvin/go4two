@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Board } from './Board'
 import { Stone } from './Stone'
+import { movesToBoardState } from '@/lib/types'
 import type { Move, PlayerColor } from '@/lib/types'
 import type { CursorPosition } from '@/lib/hooks/usePartySocket'
 
@@ -28,13 +29,30 @@ export function DroppableBoard({
   onCursorMove,
 }: DroppableBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragPosition, setDragPosition] = useState<{ boardX: number; boardY: number } | null>(null)
   const [snapPosition, setSnapPosition] = useState<{ x: number; y: number } | null>(null)
+  const [scale, setScale] = useState(1)
 
   // Calculate cell size and padding (must match Board component)
   const cellSize = size === 19 ? 28 : size === 13 ? 36 : 44
   const padding = cellSize
+  const boardPx = cellSize * (size - 1)
+  const totalBoardSize = boardPx + padding * 2
+
+  // Calculate scale based on available width
+  useEffect(() => {
+    const updateScale = () => {
+      const maxWidth = window.innerWidth - 32 // 16px padding on each side
+      const newScale = Math.min(1, maxWidth / totalBoardSize)
+      setScale(newScale)
+    }
+
+    updateScale()
+    window.addEventListener('resize', updateScale)
+    return () => window.removeEventListener('resize', updateScale)
+  }, [totalBoardSize])
 
   // Get board-relative position from mouse/touch event
   const getBoardPosition = useCallback(
@@ -42,12 +60,13 @@ export function DroppableBoard({
       if (!boardRef.current) return null
 
       const rect = boardRef.current.getBoundingClientRect()
-      const boardX = clientX - rect.left - padding
-      const boardY = clientY - rect.top - padding
+      // Account for CSS transform scale
+      const boardX = (clientX - rect.left) / scale - padding
+      const boardY = (clientY - rect.top) / scale - padding
 
       return { boardX, boardY }
     },
-    [padding]
+    [padding, scale]
   )
 
   // Get intersection from board position (only if close enough)
@@ -74,10 +93,11 @@ export function DroppableBoard({
     [cellSize, size]
   )
 
-  // Check if position is occupied
+  // Check if position is occupied (accounts for captures)
   const isOccupied = useCallback(
     (x: number, y: number): boolean => {
-      return moves.some((m) => m.move_type === 'place' && m.x === x && m.y === y)
+      const boardState = movesToBoardState(moves)
+      return boardState.has(`${x},${y}`)
     },
     [moves]
   )
@@ -113,6 +133,11 @@ export function DroppableBoard({
   const handleDragMove = useCallback(
     (e: MouseEvent | TouchEvent) => {
       if (!isDragging) return
+
+      // Prevent scrolling on touch devices
+      if ('touches' in e) {
+        e.preventDefault()
+      }
 
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
@@ -191,13 +216,25 @@ export function DroppableBoard({
 
   return (
     <div className="flex flex-col items-center gap-6">
-      {/* Board wrapper */}
+      {/* Board container for scaling */}
       <div
-        ref={boardRef}
-        className="relative select-none"
-        style={{ cursor: isMyTurn ? 'pointer' : 'default' }}
-        onClick={handleBoardClick}
+        ref={containerRef}
+        style={{
+          width: totalBoardSize * scale,
+          height: totalBoardSize * scale,
+        }}
       >
+        {/* Board wrapper */}
+        <div
+          ref={boardRef}
+          className="relative select-none touch-none"
+          style={{
+            cursor: isMyTurn ? 'pointer' : 'default',
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}
+          onClick={handleBoardClick}
+        >
         <Board
           size={size}
           moves={moves}
@@ -249,24 +286,25 @@ export function DroppableBoard({
             </div>
           </>
         )}
+        </div>
       </div>
 
       {/* Stone supply - drag from here */}
       {playerColor && (
-        <div className="flex items-center gap-4">
-          <span className="text-stone-400 text-sm">
-            {isMyTurn ? 'Drag to place or click on board:' : 'Waiting for opponent...'}
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+          <span className="text-stone-400 text-xs sm:text-sm text-center">
+            {isMyTurn ? 'Drag to place or tap board:' : 'Waiting for opponent...'}
           </span>
           <div
             onMouseDown={handleStonePickup}
             onTouchStart={handleStonePickup}
-            className={`touch-none ${
+            className={`touch-none p-2 ${
               isMyTurn
                 ? 'cursor-grab active:cursor-grabbing hover:scale-110 transition-transform'
                 : 'opacity-50 cursor-not-allowed'
             }`}
           >
-            <Stone color={playerColor} size={40} />
+            <Stone color={playerColor} size={48} />
           </div>
         </div>
       )}

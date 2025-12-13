@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { Stone } from './Stone'
+import { movesToBoardState } from '@/lib/types'
 import type { Move, PlayerColor } from '@/lib/types'
 
 interface BoardProps {
@@ -28,16 +29,8 @@ const STAR_POINTS: Record<number, [number, number][]> = {
 }
 
 export function Board({ size, moves, lastMove, ghostPosition, onIntersectionClick }: BoardProps) {
-  // Build board state from moves
-  const boardState = useMemo(() => {
-    const state = new Map<string, PlayerColor>()
-    for (const move of moves) {
-      if (move.move_type === 'place') {
-        state.set(`${move.x},${move.y}`, move.player_color)
-      }
-    }
-    return state
-  }, [moves])
+  // Build board state from moves (handles captures)
+  const boardState = useMemo(() => movesToBoardState(moves), [moves])
 
   const starPoints = STAR_POINTS[size] || []
 

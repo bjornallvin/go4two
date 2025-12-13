@@ -30,25 +30,29 @@ export function GameInfo({ game, playerColor, isMyTurn }: GameInfoProps) {
         </div>
       </div>
 
-      {/* Turn indicator */}
-      <div className="flex items-center gap-2">
-        <span className="text-stone-400 text-sm">Turn:</span>
+      {/* Turn indicator - only show when game is active */}
+      {game.status === 'active' && (
         <div className="flex items-center gap-2">
-          <Stone color={game.current_turn} size={20} />
-          <span className={`font-medium capitalize ${isMyTurn ? 'text-amber-400' : 'text-stone-300'}`}>
-            {game.current_turn}
-            {isMyTurn && ' (Your turn)'}
-          </span>
+          <span className="text-stone-400 text-sm">Turn:</span>
+          <div className="flex items-center gap-2">
+            <Stone color={game.current_turn} size={20} />
+            <span className={`font-medium capitalize ${isMyTurn ? 'text-amber-400' : 'text-stone-300'}`}>
+              {game.current_turn}
+              {isMyTurn && ' (Your turn)'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Game status */}
-      {game.status !== 'active' && (
-        <div className={`text-sm font-medium ${
-          game.status === 'waiting' ? 'text-amber-400' : 'text-stone-400'
-        }`}>
-          {game.status === 'waiting' && 'Waiting for opponent...'}
-          {game.status === 'finished' && 'Game finished'}
+      {game.status === 'waiting' && (
+        <div className="text-sm font-medium text-amber-400">
+          Waiting for opponent to join...
+        </div>
+      )}
+      {game.status === 'finished' && (
+        <div className="text-sm font-medium text-stone-400">
+          Game finished
         </div>
       )}
     </div>

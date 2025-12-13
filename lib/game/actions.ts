@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db'
 import { nanoid } from 'nanoid'
 import type { Game, Move, PlayerColor } from '@/lib/types'
+import { validateMove, isGameOver } from './engine'
 
 function generateGameCode(): string {
   return nanoid(6).toLowerCase()
@@ -130,7 +131,7 @@ export async function makeMove(
   playerId: string,
   x: number,
   y: number
-): Promise<{ move: Move | null; error: string | null }> {
+): Promise<{ move: Move | null; captures: { x: number; y: number }[]; error: string | null }> {
   try {
     const gameResult = await pool.query<Game>(
       'SELECT * FROM games WHERE id = $1',
@@ -138,7 +139,7 @@ export async function makeMove(
     )
 
     if (gameResult.rows.length === 0) {
-      return { move: null, error: 'Game not found' }
+      return { move: null, captures: [], error: 'Game not found' }
     }
 
     const game = gameResult.rows[0]
@@ -149,41 +150,49 @@ export async function makeMove(
     if (game.white_player_id === playerId) playerColor = 'white'
 
     if (!playerColor) {
-      return { move: null, error: 'You are not in this game' }
-    }
-
-    if (game.current_turn !== playerColor) {
-      return { move: null, error: 'Not your turn' }
+      return { move: null, captures: [], error: 'You are not in this game' }
     }
 
     if (game.status !== 'active') {
-      return { move: null, error: 'Game is not active' }
+      return { move: null, captures: [], error: 'Game is not active' }
     }
 
-    // Get move count
-    const countResult = await pool.query(
-      'SELECT COUNT(*) FROM moves WHERE game_id = $1',
+    // Get existing moves
+    const movesResult = await pool.query<Move>(
+      'SELECT * FROM moves WHERE game_id = $1 ORDER BY move_number ASC',
       [gameId]
     )
-    const moveNumber = parseInt(countResult.rows[0].count) + 1
+    const moves = movesResult.rows
 
-    // Check if position is occupied
-    const existingResult = await pool.query(
-      "SELECT id FROM moves WHERE game_id = $1 AND x = $2 AND y = $3 AND move_type = 'place'",
-      [gameId, x, y]
-    )
+    // Validate move using Tenuki engine
+    const validation = validateMove(game.board_size, moves, x, y, playerColor)
 
-    if (existingResult.rows.length > 0) {
-      return { move: null, error: 'Position already occupied' }
+    if (!validation.valid) {
+      return { move: null, captures: [], error: validation.error || 'Invalid move' }
     }
 
-    // Insert move
+    const moveNumber = moves.length + 1
+
+    // Insert the move
     const moveResult = await pool.query<Move>(
       `INSERT INTO moves (game_id, player_color, x, y, move_number, move_type)
        VALUES ($1, $2, $3, $4, $5, 'place')
        RETURNING *`,
       [gameId, playerColor, x, y, moveNumber]
     )
+
+    // Record captures as separate moves
+    const captures = validation.captures
+    for (let i = 0; i < captures.length; i++) {
+      const cap = captures[i]
+      // Find the color of the captured stone (opponent's color)
+      const capturedColor: PlayerColor = playerColor === 'black' ? 'white' : 'black'
+      await pool.query(
+        `INSERT INTO moves (game_id, player_color, x, y, move_number, move_type)
+         VALUES ($1, $2, $3, $4, $5, 'captured')`,
+        [gameId, capturedColor, cap.x, cap.y, moveNumber + i + 1]
+      )
+    }
 
     // Update turn
     const nextTurn: PlayerColor = playerColor === 'black' ? 'white' : 'black'
@@ -192,17 +201,17 @@ export async function makeMove(
       [nextTurn, gameId]
     )
 
-    return { move: moveResult.rows[0], error: null }
+    return { move: moveResult.rows[0], captures, error: null }
   } catch (e) {
     console.error('Error making move:', e)
-    return { move: null, error: 'Failed to make move' }
+    return { move: null, captures: [], error: 'Failed to make move' }
   }
 }
 
 export async function passTurn(
   gameId: string,
   playerId: string
-): Promise<{ success: boolean; error: string | null }> {
+): Promise<{ success: boolean; gameOver: boolean; error: string | null }> {
   try {
     const gameResult = await pool.query<Game>(
       'SELECT * FROM games WHERE id = $1',
@@ -210,7 +219,7 @@ export async function passTurn(
     )
 
     if (gameResult.rows.length === 0) {
-      return { success: false, error: 'Game not found' }
+      return { success: false, gameOver: false, error: 'Game not found' }
     }
 
     const game = gameResult.rows[0]
@@ -220,15 +229,15 @@ export async function passTurn(
     if (game.white_player_id === playerId) playerColor = 'white'
 
     if (!playerColor) {
-      return { success: false, error: 'You are not in this game' }
+      return { success: false, gameOver: false, error: 'You are not in this game' }
     }
 
     if (game.current_turn !== playerColor) {
-      return { success: false, error: 'Not your turn' }
+      return { success: false, gameOver: false, error: 'Not your turn' }
     }
 
     if (game.status !== 'active') {
-      return { success: false, error: 'Game is not active' }
+      return { success: false, gameOver: false, error: 'Game is not active' }
     }
 
     const countResult = await pool.query(
@@ -244,17 +253,35 @@ export async function passTurn(
       [gameId, playerColor, moveNumber]
     )
 
-    // Update turn
-    const nextTurn: PlayerColor = playerColor === 'black' ? 'white' : 'black'
-    await pool.query(
-      'UPDATE games SET current_turn = $1, updated_at = NOW() WHERE id = $2',
-      [nextTurn, gameId]
+    // Get all moves including the new pass to check for game end
+    const movesResult = await pool.query<Move>(
+      'SELECT * FROM moves WHERE game_id = $1 ORDER BY move_number ASC',
+      [gameId]
     )
+    const allMoves = movesResult.rows
 
-    return { success: true, error: null }
+    // Check if game is over (two consecutive passes)
+    const gameOver = isGameOver(game.board_size, allMoves)
+
+    if (gameOver) {
+      // Mark game as finished
+      await pool.query(
+        "UPDATE games SET status = 'finished', updated_at = NOW() WHERE id = $1",
+        [gameId]
+      )
+    } else {
+      // Update turn
+      const nextTurn: PlayerColor = playerColor === 'black' ? 'white' : 'black'
+      await pool.query(
+        'UPDATE games SET current_turn = $1, updated_at = NOW() WHERE id = $2',
+        [nextTurn, gameId]
+      )
+    }
+
+    return { success: true, gameOver, error: null }
   } catch (e) {
     console.error('Error passing turn:', e)
-    return { success: false, error: 'Failed to pass' }
+    return { success: false, gameOver: false, error: 'Failed to pass' }
   }
 }
 

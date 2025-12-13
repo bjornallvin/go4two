@@ -2,8 +2,6 @@
 
 A simple multiplayer Go board game. Create a game, share the link with a friend, and play together in real-time.
 
-**Live demo:** https://go4two.vercel.app
-
 ## Features
 
 - **Multiplayer** - Create a game and share the link with your opponent

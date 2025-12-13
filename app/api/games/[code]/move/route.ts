@@ -34,7 +34,7 @@ export async function POST(
       )
     }
 
-    const { move, error } = await makeMove(game.id, playerId, x, y)
+    const { move, captures, error } = await makeMove(game.id, playerId, x, y)
 
     if (error || !move) {
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function POST(
       )
     }
 
-    return NextResponse.json({ move })
+    return NextResponse.json({ move, captures })
   } catch (e) {
     console.error('Error making move:', e)
     return NextResponse.json(

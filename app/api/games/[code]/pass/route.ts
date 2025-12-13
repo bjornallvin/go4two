@@ -26,7 +26,7 @@ export async function POST(
       )
     }
 
-    const { success, error } = await passTurn(game.id, playerId)
+    const { success, gameOver, error } = await passTurn(game.id, playerId)
 
     if (!success) {
       return NextResponse.json(
@@ -35,7 +35,7 @@ export async function POST(
       )
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, gameOver })
   } catch (e) {
     console.error('Error passing turn:', e)
     return NextResponse.json(

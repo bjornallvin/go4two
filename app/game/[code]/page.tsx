@@ -17,7 +17,7 @@ export default function GamePage() {
   const code = params.code as string
   const playerId = usePlayerId()
 
-  const { game, moves, playerColor, isMyTurn, loading, error, refetch, setGameState } = useGame(
+  const { game, moves, playerColor, isMyTurn, loading, error, refetch, setGameState, addOptimisticMove, removeOptimisticMove } = useGame(
     code,
     playerId
   )
@@ -45,7 +45,7 @@ export default function GamePage() {
   useEffect(() => {
     if (!playerId || joined || joining) return
 
-    const joinGame = async () => {
+    const doJoin = async () => {
       setJoining(true)
       try {
         const res = await fetch(`/api/games/${code}/join`, {
@@ -56,10 +56,12 @@ export default function GamePage() {
         const data = await res.json()
         if (data.error) {
           console.error('Join error:', data.error)
-        } else {
-          // Broadcast game update to other players
-          if (data.game) {
-            refetch()
+        } else if (data.game) {
+          // Fetch full game state and broadcast to other players
+          const updated = await fetch(`/api/games/${code}`).then((r) => r.json())
+          if (updated.game) {
+            setGameState(updated.game, updated.moves)
+            sendGameUpdate(updated.game, updated.moves)
           }
         }
         setJoined(true)
@@ -70,13 +72,17 @@ export default function GamePage() {
       }
     }
 
-    joinGame()
-  }, [playerId, code, joined, joining, refetch])
+    doJoin()
+  }, [playerId, code, joined, joining, setGameState, sendGameUpdate])
 
   const handleMove = async (x: number, y: number) => {
-    if (!playerId || !game) return
+    if (!playerId || !game || !playerColor) return
 
     setMoveError(null)
+
+    // Optimistic update - immediately show the stone
+    addOptimisticMove(x, y, playerColor)
+
     try {
       const res = await fetch(`/api/games/${code}/move`, {
         method: 'POST',
@@ -85,10 +91,12 @@ export default function GamePage() {
       })
       const data = await res.json()
       if (data.error) {
+        // Rollback optimistic update
+        removeOptimisticMove(x, y)
         setMoveError(data.error)
         setTimeout(() => setMoveError(null), 3000)
       } else {
-        // Refetch and broadcast update
+        // Fetch actual state and broadcast update
         const updated = await fetch(`/api/games/${code}`).then((r) => r.json())
         if (updated.game) {
           setGameState(updated.game, updated.moves)
@@ -96,6 +104,8 @@ export default function GamePage() {
         }
       }
     } catch (e) {
+      // Rollback optimistic update
+      removeOptimisticMove(x, y)
       setMoveError('Failed to make move')
       setTimeout(() => setMoveError(null), 3000)
     }

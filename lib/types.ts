@@ -1,6 +1,6 @@
 export type GameStatus = 'waiting' | 'active' | 'finished'
 export type PlayerColor = 'black' | 'white'
-export type MoveType = 'place' | 'pass' | 'resign'
+export type MoveType = 'place' | 'pass' | 'resign' | 'captured'
 
 export interface Game {
   id: string
@@ -28,12 +28,17 @@ export interface Move {
 // Board position (x, y) -> stone color
 export type BoardState = Map<string, PlayerColor>
 
-// Helper to convert moves to board state
+// Helper to convert moves to board state (replays moves in order)
 export function movesToBoardState(moves: Move[]): BoardState {
   const board = new Map<string, PlayerColor>()
+
+  // Replay moves in order - 'place' adds stone, 'captured' removes stone
   for (const move of moves) {
+    const key = `${move.x},${move.y}`
     if (move.move_type === 'place') {
-      board.set(`${move.x},${move.y}`, move.player_color)
+      board.set(key, move.player_color)
+    } else if (move.move_type === 'captured') {
+      board.delete(key)
     }
   }
   return board

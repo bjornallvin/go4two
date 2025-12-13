@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createGame } from '@/lib/game/actions'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check auth token
+    const authToken = process.env.AUTH_TOKEN
+    if (authToken) {
+      const cookieStore = await cookies()
+      const token = cookieStore.get('auth_token')?.value
+      if (token !== authToken) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
+    }
+
     const body = await request.json()
     const { boardSize } = body
 
