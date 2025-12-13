@@ -1,0 +1,33 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createGame } from '@/lib/game/actions'
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { boardSize } = body
+
+    if (!boardSize || ![9, 13, 19].includes(boardSize)) {
+      return NextResponse.json(
+        { error: 'Invalid board size' },
+        { status: 400 }
+      )
+    }
+
+    const { game, error } = await createGame(boardSize)
+
+    if (error || !game) {
+      return NextResponse.json(
+        { error: error || 'Failed to create game' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ code: game.code, game })
+  } catch (e) {
+    console.error('Error creating game:', e)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
