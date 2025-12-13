@@ -69,51 +69,66 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
+    <main className="flex-1 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-stone-100">Go4Two</h1>
-          <p className="mt-2 text-stone-400">Play Go with a friend</p>
+        {/* Header with decorative stones */}
+        <div className="text-center space-y-4">
+          <div className="flex justify-center items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-800 to-black shadow-lg" />
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 bg-clip-text text-transparent">
+              Go4Two
+            </h1>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-100 to-stone-300 shadow-lg" />
+          </div>
+          <p className="text-stone-400 text-lg">
+            The ancient game of Go, made simple for two friends
+          </p>
         </div>
 
         {/* Create Game */}
-        <div className="bg-stone-800 rounded-lg p-6 space-y-4">
-          <h2 className="text-xl font-semibold text-stone-100">Create Game</h2>
+        <div className="bg-stone-800/50 backdrop-blur rounded-2xl p-6 space-y-5 border border-stone-700/50 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-amber-500" />
+            <h2 className="text-xl font-semibold text-stone-100">Start a new game</h2>
+          </div>
 
           {isAuthenticated === null ? (
             <div className="text-stone-400 text-center py-4">Loading...</div>
           ) : isAuthenticated ? (
             <>
               <div>
-                <label className="block text-sm text-stone-400 mb-2">Board Size</label>
-                <div className="flex gap-2">
+                <label className="block text-sm text-stone-400 mb-3">Choose your board</label>
+                <div className="flex gap-3">
                   {[9, 13, 19].map((size) => (
                     <button
                       key={size}
                       onClick={() => setBoardSize(size)}
-                      className={`flex-1 py-2 px-4 rounded font-medium transition-colors ${
+                      className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
                         boardSize === size
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-stone-700 text-stone-300 hover:bg-stone-600'
+                          ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-600/25 scale-105'
+                          : 'bg-stone-700/50 text-stone-300 hover:bg-stone-600/50 hover:scale-102'
                       }`}
                     >
                       {size}×{size}
                     </button>
                   ))}
                 </div>
+                <p className="text-stone-500 text-xs mt-2 text-center">
+                  {boardSize === 9 ? 'Quick game · ~15 min' : boardSize === 13 ? 'Medium game · ~30 min' : 'Full game · ~1 hour'}
+                </p>
               </div>
 
               <button
                 onClick={createGame}
                 disabled={creating}
-                className="w-full py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-stone-600 text-white font-semibold rounded transition-colors"
+                className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:from-stone-600 disabled:to-stone-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-600/20 hover:shadow-amber-500/30 hover:scale-[1.02] active:scale-[0.98]"
               >
-                {creating ? 'Creating...' : 'Create Game'}
+                {creating ? 'Setting up the board...' : 'Create Game'}
               </button>
             </>
           ) : (
             <>
-              <p className="text-stone-400 text-sm">Enter password to create games</p>
+              <p className="text-stone-400 text-sm">Enter the password to create games</p>
               <div className="flex gap-2">
                 <input
                   type="password"
@@ -121,12 +136,12 @@ export default function Home() {
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && authenticate()}
                   placeholder="Password"
-                  className="flex-1 px-4 py-2 bg-stone-700 text-stone-100 rounded placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-600"
+                  className="flex-1 px-4 py-3 bg-stone-700/50 text-stone-100 rounded-xl placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 border border-stone-600/50"
                 />
                 <button
                   onClick={authenticate}
                   disabled={!password}
-                  className="px-6 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-stone-700 disabled:text-stone-500 text-white font-medium rounded transition-colors"
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:from-stone-700 disabled:to-stone-700 disabled:text-stone-500 text-white font-medium rounded-xl transition-all"
                 >
                   Unlock
                 </button>
@@ -137,22 +152,27 @@ export default function Home() {
         </div>
 
         {/* Join Game */}
-        <div className="bg-stone-800 rounded-lg p-6 space-y-4">
-          <h2 className="text-xl font-semibold text-stone-100">Join Game</h2>
+        <div className="bg-stone-800/50 backdrop-blur rounded-2xl p-6 space-y-5 border border-stone-700/50 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-stone-400" />
+            <h2 className="text-xl font-semibold text-stone-100">Join a friend</h2>
+          </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <p className="text-stone-400 text-sm">Got a game code? Enter it below to join</p>
+
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && joinGame()}
-              placeholder="Enter game code"
-              className="flex-1 px-4 py-3 bg-stone-700 text-stone-100 rounded placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-600"
+              placeholder="e.g. abc123"
+              className="flex-1 px-4 py-3 bg-stone-700/50 text-stone-100 rounded-xl placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 border border-stone-600/50 font-mono tracking-wider"
             />
             <button
               onClick={joinGame}
               disabled={!joinCode.trim()}
-              className="px-6 py-3 bg-stone-600 hover:bg-stone-500 disabled:bg-stone-700 disabled:text-stone-500 text-white font-medium rounded transition-colors"
+              className="px-8 py-3 bg-stone-600/50 hover:bg-stone-500/50 disabled:bg-stone-700/30 disabled:text-stone-600 text-white font-medium rounded-xl transition-all border border-stone-500/30 hover:border-stone-400/30"
             >
               Join
             </button>
@@ -160,7 +180,9 @@ export default function Home() {
         </div>
 
         {error && (
-          <p className="text-red-400 text-center">{error}</p>
+          <div className="bg-red-900/30 border border-red-700/50 rounded-xl p-4">
+            <p className="text-red-300 text-center text-sm">{error}</p>
+          </div>
         )}
       </div>
     </main>

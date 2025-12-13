@@ -11,48 +11,54 @@ interface GameInfoProps {
 
 export function GameInfo({ game, playerColor, isMyTurn }: GameInfoProps) {
   return (
-    <div className="bg-stone-800 rounded-lg p-4 space-y-3">
-      {/* Player info */}
+    <div className="bg-stone-800/50 backdrop-blur rounded-2xl p-5 border border-stone-700/50 shadow-lg">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-stone-400 text-sm">You are:</span>
+        {/* Player info */}
+        <div className="flex items-center gap-3">
           {playerColor ? (
-            <div className="flex items-center gap-2">
-              <Stone color={playerColor} size={20} />
-              <span className="text-stone-100 font-medium capitalize">{playerColor}</span>
+            <div className="flex items-center gap-3">
+              <Stone color={playerColor} size={28} />
+              <div>
+                <p className="text-stone-400 text-xs">Playing as</p>
+                <p className="text-stone-100 font-semibold capitalize">{playerColor}</p>
+              </div>
             </div>
           ) : (
-            <span className="text-stone-500">Spectating</span>
+            <span className="text-stone-500">Watching the game</span>
           )}
         </div>
-        <div className="text-stone-500 text-sm">
+
+        {/* Turn indicator */}
+        {game.status === 'active' && (
+          <div className={`flex items-center gap-3 px-4 py-2 rounded-xl ${
+            isMyTurn
+              ? 'bg-amber-500/20 border border-amber-500/30'
+              : 'bg-stone-700/30 border border-stone-600/30'
+          }`}>
+            <Stone color={game.current_turn} size={24} />
+            <div>
+              <p className={`text-xs ${isMyTurn ? 'text-amber-400' : 'text-stone-500'}`}>
+                {isMyTurn ? 'Your move!' : 'Waiting...'}
+              </p>
+              <p className={`font-semibold capitalize ${isMyTurn ? 'text-amber-300' : 'text-stone-400'}`}>
+                {game.current_turn}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Board size badge */}
+        <div className="text-stone-500 text-sm bg-stone-700/30 px-3 py-1 rounded-lg">
           {game.board_size}×{game.board_size}
         </div>
       </div>
 
-      {/* Turn indicator - only show when game is active */}
-      {game.status === 'active' && (
-        <div className="flex items-center gap-2">
-          <span className="text-stone-400 text-sm">Turn:</span>
-          <div className="flex items-center gap-2">
-            <Stone color={game.current_turn} size={20} />
-            <span className={`font-medium capitalize ${isMyTurn ? 'text-amber-400' : 'text-stone-300'}`}>
-              {game.current_turn}
-              {isMyTurn && ' (Your turn)'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Game status */}
+      {/* Game status messages */}
       {game.status === 'waiting' && (
-        <div className="text-sm font-medium text-amber-400">
-          Waiting for opponent to join...
-        </div>
-      )}
-      {game.status === 'finished' && (
-        <div className="text-sm font-medium text-stone-400">
-          Game finished
+        <div className="mt-4 text-center">
+          <p className="text-amber-400 font-medium animate-pulse">
+            Waiting for your friend to join...
+          </p>
         </div>
       )}
     </div>

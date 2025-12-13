@@ -162,20 +162,20 @@ export default function GamePage() {
 
   if (loading || !playerId) {
     return (
-      <main className="min-h-screen bg-stone-900 flex items-center justify-center">
-        <div className="text-stone-400">Loading...</div>
+      <main className="flex-1 flex items-center justify-center">
+        <div className="text-stone-400 animate-pulse">Setting up the board...</div>
       </main>
     )
   }
 
   if (error || !game) {
     return (
-      <main className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="text-center space-y-4 bg-stone-800/50 rounded-2xl p-8 border border-stone-700/50">
           <p className="text-red-400">{error || 'Game not found'}</p>
           <button
             onClick={() => router.push('/')}
-            className="px-4 py-2 bg-stone-700 hover:bg-stone-600 text-stone-100 rounded"
+            className="px-6 py-3 bg-stone-700/50 hover:bg-stone-600/50 text-stone-100 rounded-xl transition-all border border-stone-600/50"
           >
             Back to Home
           </button>
@@ -185,20 +185,25 @@ export default function GamePage() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-900 p-4">
+    <main className="flex-1 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
-            className="text-stone-400 hover:text-stone-200 transition-colors"
+            className="text-stone-400 hover:text-amber-400 transition-colors flex items-center gap-2"
           >
-            &larr; Back
+            <span>&larr;</span>
+            <span className="hidden sm:inline">Home</span>
           </button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-stone-100">Go4Two</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-stone-800 to-black shadow" />
+            <h1 className="text-xl font-bold bg-gradient-to-r from-amber-200 to-amber-100 bg-clip-text text-transparent">
+              Go4Two
+            </h1>
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-stone-100 to-stone-300 shadow" />
             {connected && (
-              <span className="w-2 h-2 bg-green-500 rounded-full" title="Connected" />
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected" />
             )}
           </div>
           <div className="w-16" />
@@ -212,7 +217,7 @@ export default function GamePage() {
 
         {/* Error message */}
         {moveError && (
-          <div className="bg-red-900/50 border border-red-600 text-red-200 px-4 py-2 rounded">
+          <div className="bg-red-900/30 border border-red-700/50 text-red-300 px-4 py-3 rounded-xl text-sm">
             {moveError}
           </div>
         )}
@@ -246,13 +251,14 @@ export default function GamePage() {
 
         {/* Game finished message */}
         {game.status === 'finished' && (
-          <div className="text-center space-y-4">
-            <p className="text-amber-400 text-lg">Game Over</p>
+          <div className="text-center space-y-4 bg-stone-800/50 rounded-2xl p-6 border border-stone-700/50">
+            <p className="text-amber-400 text-xl font-semibold">Good game!</p>
+            <p className="text-stone-400 text-sm">Thanks for playing</p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded"
+              className="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-600/20"
             >
-              New Game
+              Play Again
             </button>
           </div>
         )}

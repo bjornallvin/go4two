@@ -291,17 +291,17 @@ export function DroppableBoard({
 
       {/* Stone supply - drag from here */}
       {playerColor && (
-        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-          <span className="text-stone-400 text-xs sm:text-sm text-center">
-            {isMyTurn ? 'Drag to place or tap board:' : 'Waiting for opponent...'}
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-stone-800/30 px-6 py-4 rounded-2xl border border-stone-700/30">
+          <span className="text-stone-400 text-sm text-center">
+            {isMyTurn ? 'Your turn — drag or tap to place' : "Your friend is thinking..."}
           </span>
           <div
             onMouseDown={handleStonePickup}
             onTouchStart={handleStonePickup}
-            className={`touch-none p-2 ${
+            className={`touch-none p-2 rounded-full ${
               isMyTurn
-                ? 'cursor-grab active:cursor-grabbing hover:scale-110 transition-transform'
-                : 'opacity-50 cursor-not-allowed'
+                ? 'cursor-grab active:cursor-grabbing hover:scale-110 hover:bg-stone-700/30 transition-all'
+                : 'opacity-40 cursor-not-allowed'
             }`}
           >
             <Stone color={playerColor} size={48} />

@@ -35,23 +35,23 @@ export function GameControls({
   if (!isActive) return null
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-3">
       <button
         onClick={onPass}
         disabled={!isMyTurn}
-        className="px-4 py-2 bg-stone-700 hover:bg-stone-600 disabled:bg-stone-800 disabled:text-stone-600 text-stone-100 rounded transition-colors"
+        className="px-6 py-3 bg-stone-700/50 hover:bg-stone-600/50 disabled:bg-stone-800/30 disabled:text-stone-600 text-stone-100 rounded-xl transition-all border border-stone-600/50 hover:border-stone-500/50 font-medium"
       >
-        Pass
+        Pass Turn
       </button>
       <button
         onClick={handleResignClick}
-        className={`px-4 py-2 rounded transition-colors ${
+        className={`px-6 py-3 rounded-xl transition-all font-medium ${
           confirmResign
-            ? 'bg-red-600 hover:bg-red-500 text-white'
-            : 'bg-stone-700 hover:bg-stone-600 text-stone-100'
+            ? 'bg-red-500/80 hover:bg-red-500 text-white border border-red-400/50'
+            : 'bg-stone-700/50 hover:bg-stone-600/50 text-stone-300 border border-stone-600/50 hover:border-stone-500/50'
         }`}
       >
-        {confirmResign ? 'Confirm Resign' : 'Resign'}
+        {confirmResign ? 'Yes, Resign' : 'Resign'}
       </button>
     </div>
   )
