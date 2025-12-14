@@ -445,7 +445,7 @@ export default function GamePage() {
               />
             )}
             {/* Desktop chat toggle (only for multiplayer) */}
-            {game.status !== 'waiting' && !isSinglePlayer && (
+            {!isSinglePlayer && (
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
                 className="hidden md:block relative text-stone-400 hover:text-amber-400 transition-colors p-2"
@@ -493,6 +493,7 @@ export default function GamePage() {
             territories={(showTerritoryMarkers || game.status === 'finished') ? (territoryData?.territories || []) : []}
             territoryFading={territoryFading && game.status === 'active'}
             gameFinished={game.status === 'finished'}
+            gameWaiting={game.status === 'waiting'}
           />
         </div>
 
@@ -538,7 +539,7 @@ export default function GamePage() {
       </div>
 
       {/* Chat panel (only for multiplayer) */}
-      {game.status !== 'waiting' && !isSinglePlayer && (
+      {!isSinglePlayer && (
         <ChatPanel
           messages={chatMessages}
           playerId={playerId}

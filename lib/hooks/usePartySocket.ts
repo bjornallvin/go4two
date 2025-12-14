@@ -41,6 +41,7 @@ interface UsePartySocketOptions {
   gameCode: string
   playerId: string | null
   onGameUpdate?: (game: unknown, moves: unknown[]) => void
+  loadChatHistory?: boolean
 }
 
 interface UsePartySocketResult {
@@ -61,6 +62,7 @@ export function usePartySocket({
   gameCode,
   playerId,
   onGameUpdate,
+  loadChatHistory = true,
 }: UsePartySocketOptions): UsePartySocketResult {
   const socketRef = useRef<PartySocket | null>(null)
   const [connected, setConnected] = useState(false)
@@ -68,6 +70,35 @@ export function usePartySocket({
   const [chatMessages, setChatMessages] = useState<ChatMessageData[]>([])
   const [activeReaction, setActiveReaction] = useState<ActiveReaction | null>(null)
   const [opponentPeerId, setOpponentPeerId] = useState<string | null>(null)
+  const chatHistoryLoaded = useRef(false)
+
+  // Load chat history from database
+  useEffect(() => {
+    if (!gameCode || !playerId || !loadChatHistory || chatHistoryLoaded.current) return
+
+    const loadHistory = async () => {
+      try {
+        const res = await fetch(`/api/games/${gameCode}/chat`)
+        const data = await res.json()
+        if (data.messages && data.messages.length > 0) {
+          setChatMessages(
+            data.messages.map((msg: { id: string; player_id: string; message: string; created_at: string }) => ({
+              id: msg.id,
+              playerId: msg.player_id,
+              message: msg.message,
+              timestamp: new Date(msg.created_at).getTime(),
+              isOwn: msg.player_id === playerId,
+            }))
+          )
+        }
+        chatHistoryLoaded.current = true
+      } catch (e) {
+        console.error('Failed to load chat history:', e)
+      }
+    }
+
+    loadHistory()
+  }, [gameCode, playerId, loadChatHistory])
 
   useEffect(() => {
     if (!playerId || !gameCode) return
@@ -193,7 +224,7 @@ export function usePartySocket({
 
   const sendChat = useCallback(
     (message: string) => {
-      if (!socketRef.current || !playerId) return
+      if (!socketRef.current || !playerId || !gameCode) return
       const trimmed = message.trim().slice(0, 500) // Max 500 chars
       if (!trimmed) return
 
@@ -211,7 +242,7 @@ export function usePartySocket({
         return updated.slice(-100)
       })
 
-      // Send to other players
+      // Send to other players via WebSocket
       socketRef.current.send(
         JSON.stringify({
           type: 'chat',
@@ -220,8 +251,15 @@ export function usePartySocket({
           timestamp,
         })
       )
+
+      // Save to database (fire and forget)
+      fetch(`/api/games/${gameCode}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, message: trimmed }),
+      }).catch((e) => console.error('Failed to save chat message:', e))
     },
-    [playerId]
+    [playerId, gameCode]
   )
 
   const sendReaction = useCallback(

@@ -401,3 +401,71 @@ export async function resignGame(
     return { success: false, error: 'Failed to resign' }
   }
 }
+
+// Chat message types
+export interface ChatMessage {
+  id: string
+  game_id: string
+  player_id: string
+  message: string
+  created_at: string
+}
+
+export async function getChatMessages(gameCode: string): Promise<{ messages: ChatMessage[]; error: string | null }> {
+  try {
+    const gameResult = await pool.query<Game>(
+      'SELECT id FROM games WHERE code = $1',
+      [gameCode.toLowerCase()]
+    )
+
+    if (gameResult.rows.length === 0) {
+      return { messages: [], error: 'Game not found' }
+    }
+
+    const gameId = gameResult.rows[0].id
+
+    const result = await pool.query<ChatMessage>(
+      `SELECT * FROM chat_messages
+       WHERE game_id = $1
+       ORDER BY created_at ASC
+       LIMIT 100`,
+      [gameId]
+    )
+
+    return { messages: result.rows, error: null }
+  } catch (e) {
+    console.error('Error fetching chat messages:', e)
+    return { messages: [], error: 'Failed to fetch messages' }
+  }
+}
+
+export async function saveChatMessage(
+  gameCode: string,
+  playerId: string,
+  message: string
+): Promise<{ message: ChatMessage | null; error: string | null }> {
+  try {
+    const gameResult = await pool.query<Game>(
+      'SELECT id FROM games WHERE code = $1',
+      [gameCode.toLowerCase()]
+    )
+
+    if (gameResult.rows.length === 0) {
+      return { message: null, error: 'Game not found' }
+    }
+
+    const gameId = gameResult.rows[0].id
+
+    const result = await pool.query<ChatMessage>(
+      `INSERT INTO chat_messages (game_id, player_id, message)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [gameId, playerId, message.slice(0, 500)] // Max 500 chars
+    )
+
+    return { message: result.rows[0], error: null }
+  } catch (e) {
+    console.error('Error saving chat message:', e)
+    return { message: null, error: 'Failed to save message' }
+  }
+}
