@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useGameHistory } from '@/lib/hooks/useGameHistory'
+import { GameHistory } from '@/components/GameHistory'
 
 export default function Home() {
   const router = useRouter()
@@ -12,6 +14,8 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [password, setPassword] = useState('')
   const [authError, setAuthError] = useState('')
+
+  const { games, loaded, saveGame, removeGame, updateGameStatus, clearAll } = useGameHistory()
 
   useEffect(() => {
     fetch('/api/auth')
@@ -51,6 +55,15 @@ export default function Home() {
       })
       const data = await res.json()
       if (data.code) {
+        // Save to game history
+        saveGame({
+          code: data.code,
+          boardSize,
+          playerColor: null,
+          status: 'waiting',
+          createdAt: Date.now(),
+          isCreator: true,
+        })
         router.push(`/game/${data.code}`)
       } else {
         setError(data.error || 'Failed to create game')
@@ -63,8 +76,18 @@ export default function Home() {
   }
 
   const joinGame = () => {
-    if (joinCode.trim()) {
-      router.push(`/game/${joinCode.trim().toLowerCase()}`)
+    const code = joinCode.trim().toLowerCase()
+    if (code) {
+      // Save to game history (will be updated with real data when game loads)
+      saveGame({
+        code,
+        boardSize: 19, // Will be updated when game loads
+        playerColor: null,
+        status: 'active',
+        createdAt: Date.now(),
+        isCreator: false,
+      })
+      router.push(`/game/${code}`)
     }
   }
 
@@ -183,6 +206,16 @@ export default function Home() {
           <div className="bg-red-900/30 border border-red-700/50 rounded-xl p-4">
             <p className="text-red-300 text-center text-sm">{error}</p>
           </div>
+        )}
+
+        {/* Game History */}
+        {loaded && games.length > 0 && (
+          <GameHistory
+            games={games}
+            onRemove={removeGame}
+            onClearAll={clearAll}
+            onRefresh={updateGameStatus}
+          />
         )}
       </div>
 

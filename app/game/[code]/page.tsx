@@ -6,6 +6,7 @@ import { usePlayerId } from '@/lib/hooks/usePlayerId'
 import { useGame } from '@/lib/hooks/useGame'
 import { usePartySocket } from '@/lib/hooks/usePartySocket'
 import { useGameSounds } from '@/lib/hooks/useGameSounds'
+import { useGameHistory } from '@/lib/hooks/useGameHistory'
 import { DroppableBoard } from '@/components/DroppableBoard'
 import { GameInfo } from '@/components/GameInfo'
 import { GameControls } from '@/components/GameControls'
@@ -16,6 +17,7 @@ import { ChatPanel } from '@/components/ChatPanel'
 import { ScoreDisplay } from '@/components/ScoreDisplay'
 import { VoiceChat } from '@/components/VoiceChat'
 import { RulesModal } from '@/components/RulesModal'
+import { GameSelector } from '@/components/GameSelector'
 import type { Game, Move, PlayerColor } from '@/lib/types'
 
 interface TerritoryData {
@@ -35,6 +37,8 @@ export default function GamePage() {
     code,
     playerId
   )
+
+  const { games: gameHistory, saveGame } = useGameHistory()
 
   const [joined, setJoined] = useState(false)
   const [joining, setJoining] = useState(false)
@@ -138,6 +142,20 @@ export default function GamePage() {
 
   // Rules modal state
   const [showRules, setShowRules] = useState(false)
+
+  // Save game to history when game state updates
+  useEffect(() => {
+    if (game) {
+      saveGame({
+        code,
+        boardSize: game.board_size,
+        playerColor,
+        status: game.status,
+        createdAt: new Date(game.created_at).getTime(),
+        isCreator: game.black_player_id === playerId && game.white_player_id === null,
+      })
+    }
+  }, [game, code, playerColor, playerId, saveGame])
 
   // Count only opponent messages for unread badge
   const opponentMessageCount = chatMessages.filter((msg) => !msg.isOwn).length
@@ -343,6 +361,7 @@ export default function GamePage() {
             )}
           </div>
           <div className="flex items-center">
+            <GameSelector currentCode={code} games={gameHistory} />
             <button
               onClick={() => setShowRules(true)}
               className="text-stone-400 hover:text-amber-400 transition-colors p-2"
