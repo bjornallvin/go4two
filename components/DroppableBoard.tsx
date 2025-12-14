@@ -17,6 +17,9 @@ interface DroppableBoardProps {
   onMove: (x: number, y: number) => void
   onCursorMove: (x: number, y: number, isDragging: boolean) => void
   overlay?: React.ReactNode
+  recentCaptures?: { x: number; y: number; color: PlayerColor }[]
+  territories?: { x: number; y: number; color: PlayerColor }[]
+  territoryFading?: boolean
 }
 
 const SNAP_THRESHOLD = 0.4 // Snap when within 40% of cell size
@@ -31,6 +34,9 @@ export function DroppableBoard({
   onMove,
   onCursorMove,
   overlay,
+  recentCaptures = [],
+  territories = [],
+  territoryFading = false,
 }: DroppableBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -251,6 +257,10 @@ export function DroppableBoard({
               ? { x: snapPosition.x, y: snapPosition.y, color: playerColor }
               : null
           }
+          playerColor={playerColor}
+          recentCaptures={recentCaptures}
+          territories={territories}
+          territoryFading={territoryFading}
         />
 
         {/* Dragging stone that follows cursor */}

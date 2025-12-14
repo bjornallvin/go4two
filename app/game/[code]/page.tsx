@@ -13,7 +13,16 @@ import { ShareLink } from '@/components/ShareLink'
 import { ReactionOverlay } from '@/components/ReactionOverlay'
 import { ReactionPicker } from '@/components/ReactionPicker'
 import { ChatPanel } from '@/components/ChatPanel'
-import type { Game, Move } from '@/lib/types'
+import { ScoreDisplay } from '@/components/ScoreDisplay'
+import { VoiceChat } from '@/components/VoiceChat'
+import type { Game, Move, PlayerColor } from '@/lib/types'
+
+interface TerritoryData {
+  black: { territory: number; captures: number; total: number }
+  white: { territory: number; captures: number; total: number }
+  territories: { x: number; y: number; color: PlayerColor }[]
+  winner: PlayerColor | 'tie' | null
+}
 
 export default function GamePage() {
   const params = useParams()
@@ -34,6 +43,67 @@ export default function GamePage() {
   const { playPlace, playCapture, playTurn, playError, muted, toggleMute } = useGameSounds()
   const prevIsMyTurn = useRef<boolean | null>(null)
 
+  // Track recent captures for fade-out animation
+  const [recentCaptures, setRecentCaptures] = useState<{ x: number; y: number; color: PlayerColor }[]>([])
+  const prevMovesLength = useRef(0)
+
+  // Detect new captures when moves change
+  useEffect(() => {
+    if (moves.length > prevMovesLength.current) {
+      // Find new captured moves
+      const newMoves = moves.slice(prevMovesLength.current)
+      const newCaptures = newMoves
+        .filter((m) => m.move_type === 'captured')
+        .map((m) => ({ x: m.x, y: m.y, color: m.player_color }))
+
+      if (newCaptures.length > 0) {
+        setRecentCaptures(newCaptures)
+        // Clear after animation completes
+        setTimeout(() => setRecentCaptures([]), 900)
+      }
+    }
+    prevMovesLength.current = moves.length
+  }, [moves])
+
+  // Territory scoring state
+  const [territoryData, setTerritoryData] = useState<TerritoryData | null>(null)
+  const [showTerritoryMarkers, setShowTerritoryMarkers] = useState(false)
+  const [territoryFading, setTerritoryFading] = useState(false)
+
+  // Fetch territory score
+  const fetchTerritory = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/games/${code}/score`)
+      const data = await res.json()
+      if (!data.error) {
+        setTerritoryData(data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch territory:', e)
+    }
+  }, [code])
+
+  // Auto-fetch territory on every move change and on load
+  useEffect(() => {
+    if (game && moves.length > 0) {
+      fetchTerritory()
+    }
+  }, [game, moves.length, fetchTerritory])
+
+  // Handle show territory button - toggles visual markers with fade
+  const handleShowTerritory = useCallback(() => {
+    if (showTerritoryMarkers) return // Already showing
+
+    setShowTerritoryMarkers(true)
+    setTerritoryFading(true)
+
+    // Hide after animation
+    setTimeout(() => {
+      setShowTerritoryMarkers(false)
+      setTerritoryFading(false)
+    }, 5000)
+  }, [showTerritoryMarkers])
+
   // Handle game updates from PartySocket
   const handleGameUpdate = useCallback(
     (newGame: unknown, newMoves: unknown[]) => {
@@ -42,17 +112,19 @@ export default function GamePage() {
     [setGameState]
   )
 
-  // PartySocket for real-time cursor, game updates, chat, and reactions
+  // PartySocket for real-time cursor, game updates, chat, reactions, and voice signaling
   const {
     connected,
     opponentCursor,
     chatMessages,
     activeReaction,
+    opponentPeerId,
     sendCursor,
     sendGameUpdate,
     sendChat,
     sendReaction,
     clearReaction,
+    sendPeerId,
   } = usePartySocket({
     gameCode: code,
     playerId,
@@ -285,6 +357,15 @@ export default function GamePage() {
                 </svg>
               )}
             </button>
+            {/* Voice chat (only when game is active) */}
+            {game.status !== 'waiting' && (
+              <VoiceChat
+                gameCode={code}
+                playerId={playerId}
+                opponentPeerId={opponentPeerId}
+                onPeerIdReady={sendPeerId}
+              />
+            )}
             {/* Desktop chat toggle */}
             {game.status !== 'waiting' && (
               <button
@@ -306,7 +387,7 @@ export default function GamePage() {
         </div>
 
         {/* Game info */}
-        <GameInfo game={game} moves={moves} playerColor={playerColor} isMyTurn={isMyTurn} />
+        <GameInfo game={game} playerColor={playerColor} isMyTurn={isMyTurn} territoryData={territoryData} />
 
         {/* Share link (when waiting) */}
         {game.status === 'waiting' && <ShareLink gameCode={code} />}
@@ -330,6 +411,9 @@ export default function GamePage() {
             onMove={handleMove}
             onCursorMove={handleCursorMove}
             overlay={<ReactionOverlay reaction={activeReaction} onComplete={clearReaction} />}
+            recentCaptures={recentCaptures}
+            territories={(showTerritoryMarkers || game.status === 'finished') ? (territoryData?.territories || []) : []}
+            territoryFading={territoryFading && game.status === 'active'}
           />
         </div>
 
@@ -343,6 +427,8 @@ export default function GamePage() {
               isActive={game.status === 'active'}
               onPass={handlePass}
               onResign={handleResign}
+              onEstimateScore={handleShowTerritory}
+              isEstimating={showTerritoryMarkers}
             />
             {game.status === 'active' && (
               <ReactionPicker onReaction={sendReaction} />
@@ -350,17 +436,24 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* Game finished message */}
+        {/* Game finished with score display */}
         {game.status === 'finished' && (
-          <div className="text-center space-y-4 bg-stone-800/50 rounded-2xl p-6 border border-stone-700/50">
-            <p className="text-amber-400 text-xl font-semibold">Good game!</p>
-            <p className="text-stone-400 text-sm">Thanks for playing</p>
-            <button
-              onClick={() => router.push('/')}
-              className="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-600/20"
-            >
-              Play Again
-            </button>
+          <div className="space-y-6">
+            {territoryData ? (
+              <ScoreDisplay score={territoryData} playerColor={playerColor} />
+            ) : (
+              <div className="text-center bg-stone-800/50 rounded-2xl p-6 border border-stone-700/50">
+                <p className="text-stone-400 animate-pulse">Calculating scores...</p>
+              </div>
+            )}
+            <div className="text-center">
+              <button
+                onClick={() => router.push('/')}
+                className="px-8 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-600/20"
+              >
+                Play Again
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -137,3 +137,162 @@ export function getCurrentPlayer(boardSize: number, moves: Move[]): PlayerColor 
   const game = createEngineFromMoves(boardSize, moves)
   return game.currentPlayer() as PlayerColor
 }
+
+interface TerritoryPosition {
+  x: number
+  y: number
+  color: PlayerColor
+}
+
+interface TerritoryData {
+  black: {
+    territory: number
+    captures: number
+    total: number
+  }
+  white: {
+    territory: number
+    captures: number
+    total: number
+  }
+  territories: TerritoryPosition[]
+  winner: PlayerColor | 'tie' | null
+}
+
+// Flood-fill to find connected empty regions and determine territory owner
+function calculateTerritory(
+  game: typeof TenukiGame,
+  boardSize: number
+): { territories: TerritoryPosition[]; blackTerritory: number; whiteTerritory: number } {
+  const visited = new Set<string>()
+  const territories: TerritoryPosition[] = []
+  let blackTerritory = 0
+  let whiteTerritory = 0
+
+  const getKey = (x: number, y: number) => `${x},${y}`
+
+  // Flood-fill from a starting empty point to find the entire region
+  const floodFill = (startX: number, startY: number): { points: { x: number; y: number }[]; owner: PlayerColor | null } => {
+    const points: { x: number; y: number }[] = []
+    const stack: { x: number; y: number }[] = [{ x: startX, y: startY }]
+    const regionVisited = new Set<string>()
+    let touchesBlack = false
+    let touchesWhite = false
+
+    while (stack.length > 0) {
+      const { x, y } = stack.pop()!
+      const key = getKey(x, y)
+
+      if (regionVisited.has(key)) continue
+      if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) continue
+
+      const intersection = game.intersectionAt(y, x)
+
+      if (intersection.value === 'black') {
+        touchesBlack = true
+        continue
+      }
+      if (intersection.value === 'white') {
+        touchesWhite = true
+        continue
+      }
+
+      // Empty intersection
+      regionVisited.add(key)
+      visited.add(key)
+      points.push({ x, y })
+
+      // Add neighbors
+      stack.push({ x: x + 1, y })
+      stack.push({ x: x - 1, y })
+      stack.push({ x, y: y + 1 })
+      stack.push({ x, y: y - 1 })
+    }
+
+    // Determine owner: must touch only one color
+    let owner: PlayerColor | null = null
+    if (touchesBlack && !touchesWhite) {
+      owner = 'black'
+    } else if (touchesWhite && !touchesBlack) {
+      owner = 'white'
+    }
+    // If touches both or neither, it's neutral (no owner)
+
+    return { points, owner }
+  }
+
+  // Scan all intersections
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      const key = getKey(x, y)
+      if (visited.has(key)) continue
+
+      const intersection = game.intersectionAt(y, x)
+      if (intersection.value !== 'empty') continue
+
+      // Found an unvisited empty point, flood fill to find the region
+      const { points, owner } = floodFill(x, y)
+
+      if (owner) {
+        for (const point of points) {
+          territories.push({ x: point.x, y: point.y, color: owner })
+        }
+        if (owner === 'black') {
+          blackTerritory += points.length
+        } else {
+          whiteTerritory += points.length
+        }
+      }
+    }
+  }
+
+  return { territories, blackTerritory, whiteTerritory }
+}
+
+// Get detailed territory data including positions for visual overlay
+export function getTerritoryData(boardSize: number, moves: Move[], komi = 6.5): TerritoryData {
+  const game = createEngineFromMoves(boardSize, moves)
+
+  // Count captures from moves
+  let blackCaptures = 0
+  let whiteCaptures = 0
+  for (const move of moves) {
+    if (move.move_type === 'captured') {
+      if (move.player_color === 'white') {
+        blackCaptures++ // White stone was captured by black
+      } else {
+        whiteCaptures++ // Black stone was captured by white
+      }
+    }
+  }
+
+  // Calculate territory using flood-fill
+  const { territories, blackTerritory, whiteTerritory } = calculateTerritory(game, boardSize)
+
+  const blackTotal = blackTerritory + blackCaptures
+  const whiteTotal = whiteTerritory + whiteCaptures + komi
+
+  let winner: PlayerColor | 'tie' | null = null
+  if (blackTotal > whiteTotal) {
+    winner = 'black'
+  } else if (whiteTotal > blackTotal) {
+    winner = 'white'
+  } else {
+    winner = 'tie'
+  }
+
+  return {
+    black: {
+      territory: blackTerritory,
+      captures: blackCaptures,
+      total: blackTotal,
+    },
+    white: {
+      territory: whiteTerritory,
+      captures: whiteCaptures,
+      total: whiteTotal,
+    },
+    territories,
+    winner,
+  }
+}

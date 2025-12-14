@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { Stone } from './Stone'
+import { TerritoryOverlay } from './TerritoryOverlay'
 import { movesToBoardState } from '@/lib/types'
 import type { Move, PlayerColor } from '@/lib/types'
 
@@ -12,6 +13,10 @@ interface BoardProps {
   myLastMove?: { x: number; y: number } | null
   ghostPosition?: { x: number; y: number; color: PlayerColor } | null
   onIntersectionClick?: (x: number, y: number) => void
+  playerColor?: PlayerColor | null
+  recentCaptures?: { x: number; y: number; color: PlayerColor }[]
+  territories?: { x: number; y: number; color: PlayerColor }[]
+  territoryFading?: boolean
 }
 
 // Star point (hoshi) positions for different board sizes
@@ -29,7 +34,7 @@ const STAR_POINTS: Record<number, [number, number][]> = {
   ],
 }
 
-export function Board({ size, moves, lastMove, myLastMove, ghostPosition, onIntersectionClick }: BoardProps) {
+export function Board({ size, moves, lastMove, myLastMove, ghostPosition, onIntersectionClick, playerColor, recentCaptures = [], territories = [], territoryFading = false }: BoardProps) {
   // Build board state from moves (handles captures)
   const boardState = useMemo(() => movesToBoardState(moves), [moves])
 
@@ -107,6 +112,7 @@ export function Board({ size, moves, lastMove, myLastMove, ghostPosition, onInte
             const hasStone = boardState.has(`${x},${y}`)
             const isLastMove = lastMove?.x === x && lastMove?.y === y && lastMove?.move_type === 'place'
             const isMyLastMove = myLastMove?.x === x && myLastMove?.y === y && hasStone && !isLastMove
+            const isOpponentLastMove = isLastMove && playerColor && lastMove?.player_color !== playerColor
 
             return (
               <div
@@ -122,7 +128,7 @@ export function Board({ size, moves, lastMove, myLastMove, ghostPosition, onInte
               >
                 {/* Stone at this position */}
                 {boardState.has(`${x},${y}`) && (
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className={`absolute inset-0 flex items-center justify-center ${isOpponentLastMove ? 'animate-stone-in' : ''}`}>
                     <Stone
                       color={boardState.get(`${x},${y}`)!}
                       size={cellSize - 4}
@@ -170,6 +176,34 @@ export function Board({ size, moves, lastMove, myLastMove, ghostPosition, onInte
               isGhost
             />
           </div>
+        )}
+
+        {/* Captured stones fading out */}
+        {recentCaptures.map((capture, i) => (
+          <div
+            key={`capture-${capture.x}-${capture.y}-${i}`}
+            className="absolute pointer-events-none flex items-center justify-center animate-stone-out"
+            style={{
+              left: capture.x * cellSize - cellSize / 2,
+              top: capture.y * cellSize - cellSize / 2,
+              width: cellSize,
+              height: cellSize,
+            }}
+          >
+            <Stone
+              color={capture.color}
+              size={cellSize - 4}
+            />
+          </div>
+        ))}
+
+        {/* Territory overlay */}
+        {territories.length > 0 && (
+          <TerritoryOverlay
+            territories={territories}
+            cellSize={cellSize}
+            fading={territoryFading}
+          />
         )}
       </div>
     </div>

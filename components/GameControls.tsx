@@ -9,6 +9,8 @@ interface GameControlsProps {
   isActive: boolean
   onPass: () => void
   onResign: () => void
+  onEstimateScore?: () => void
+  isEstimating?: boolean
 }
 
 export function GameControls({
@@ -18,6 +20,8 @@ export function GameControls({
   isActive,
   onPass,
   onResign,
+  onEstimateScore,
+  isEstimating = false,
 }: GameControlsProps) {
   const [confirmResign, setConfirmResign] = useState(false)
 
@@ -35,7 +39,7 @@ export function GameControls({
   if (!isActive) return null
 
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap justify-center gap-3">
       <button
         onClick={onPass}
         disabled={!isMyTurn}
@@ -43,6 +47,15 @@ export function GameControls({
       >
         Pass Turn
       </button>
+      {onEstimateScore && (
+        <button
+          onClick={onEstimateScore}
+          disabled={isEstimating}
+          className="px-6 py-3 bg-amber-600/50 hover:bg-amber-500/50 disabled:bg-amber-700/30 disabled:text-amber-300/50 text-stone-100 rounded-xl transition-all border border-amber-500/50 hover:border-amber-400/50 font-medium"
+        >
+          {isEstimating ? 'Showing...' : 'Show Territory'}
+        </button>
+      )}
       <button
         onClick={handleResignClick}
         className={`px-6 py-3 rounded-xl transition-all font-medium ${

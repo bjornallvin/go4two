@@ -41,3 +41,52 @@ html, body {
 .animate-reaction {
   animation: reaction-fade 3.5s ease-out forwards;
 }
+
+/* Stone fade-in animation */
+@keyframes stone-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-stone-in {
+  animation: stone-fade-in 0.3s ease-out forwards;
+}
+
+/* Stone fade-out (capture) animation */
+@keyframes stone-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+.animate-stone-out {
+  animation: stone-fade-out 0.8s ease-out forwards;
+}
+
+/* Territory fade animation (for temporary score display) */
+@keyframes territory-fade {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-territory-fade {
+  animation: territory-fade 5s ease-out forwards;
+}
