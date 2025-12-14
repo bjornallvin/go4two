@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createGame } from '@/lib/game/actions'
+import { createGame, createSinglePlayerGame } from '@/lib/game/actions'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { boardSize } = body
+    const { boardSize, singlePlayer, playerId } = body
 
     if (!boardSize || ![9, 13, 19].includes(boardSize)) {
       return NextResponse.json(
@@ -27,6 +27,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Create single-player game against AI
+    if (singlePlayer) {
+      if (!playerId) {
+        return NextResponse.json(
+          { error: 'Player ID required for single-player' },
+          { status: 400 }
+        )
+      }
+
+      const { game, error } = await createSinglePlayerGame(boardSize, playerId)
+
+      if (error || !game) {
+        return NextResponse.json(
+          { error: error || 'Failed to create game' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ code: game.code, game, singlePlayer: true })
+    }
+
+    // Create multiplayer game
     const { game, error } = await createGame(boardSize)
 
     if (error || !game) {

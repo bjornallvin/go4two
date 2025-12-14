@@ -10,6 +10,7 @@ export interface GameHistoryEntry {
   createdAt: number
   lastPlayedAt: number
   isCreator: boolean
+  singlePlayer?: boolean
 }
 
 const STORAGE_KEY = 'go4two_game_history'

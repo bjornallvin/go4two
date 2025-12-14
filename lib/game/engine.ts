@@ -113,8 +113,17 @@ export function validateMove(
 
 // Check if game is over (two consecutive passes)
 export function isGameOver(boardSize: number, moves: Move[]): boolean {
-  const game = createEngineFromMoves(boardSize, moves)
-  return game.isOver()
+  // Filter to only game-affecting moves (place and pass)
+  const gameMoves = moves.filter(m => m.move_type === 'place' || m.move_type === 'pass')
+
+  // Need at least 2 moves for consecutive passes
+  if (gameMoves.length < 2) return false
+
+  // Check if the last two game moves are both passes
+  const lastMove = gameMoves[gameMoves.length - 1]
+  const secondLastMove = gameMoves[gameMoves.length - 2]
+
+  return lastMove.move_type === 'pass' && secondLastMove.move_type === 'pass'
 }
 
 // Get score (only valid after game is over)

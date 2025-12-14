@@ -43,6 +43,10 @@ export default function GamePage() {
   const [joined, setJoined] = useState(false)
   const [joining, setJoining] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
+  const [aiThinking, setAiThinking] = useState(false)
+
+  // Detect single-player game (AI player ID starts with 'ai_')
+  const isSinglePlayer = game?.white_player_id?.startsWith('ai_') ?? false
 
   // Sound effects
   const { playPlace, playCapture, playTurn, playError, muted, toggleMute } = useGameSounds()
@@ -175,6 +179,48 @@ export default function GamePage() {
     }
     prevIsMyTurn.current = isMyTurn
   }, [isMyTurn, playTurn])
+
+  // Trigger AI move in single-player games
+  useEffect(() => {
+    if (!isSinglePlayer || !game || game.status !== 'active' || aiThinking) return
+    if (game.current_turn !== 'white') return // AI is always white
+
+    const triggerAIMove = async () => {
+      setAiThinking(true)
+      try {
+        // Small delay to make it feel more natural
+        await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500))
+
+        const res = await fetch(`/api/games/${code}/ai`, { method: 'POST' })
+        const data = await res.json()
+
+        if (data.success) {
+          // Play sound based on result
+          if (data.move.type === 'place') {
+            if (data.captures && data.captures.length > 0) {
+              playCapture()
+            } else {
+              playPlace()
+            }
+          }
+          // Refetch game state
+          await refetch()
+        } else if (data.error) {
+          console.error('AI move error:', data.error)
+          // If game is over, refetch to get the final state
+          if (data.gameOver) {
+            await refetch()
+          }
+        }
+      } catch (e) {
+        console.error('Failed to trigger AI move:', e)
+      } finally {
+        setAiThinking(false)
+      }
+    }
+
+    triggerAIMove()
+  }, [isSinglePlayer, game, code, aiThinking, playCapture, playPlace, refetch])
 
   // Auto-join game when playerId is available
   useEffect(() => {
@@ -389,8 +435,8 @@ export default function GamePage() {
                 </svg>
               )}
             </button>
-            {/* Voice chat (only when game is active) */}
-            {game.status !== 'waiting' && (
+            {/* Voice chat (only when game is active and multiplayer) */}
+            {game.status !== 'waiting' && !isSinglePlayer && (
               <VoiceChat
                 gameCode={code}
                 playerId={playerId}
@@ -398,8 +444,8 @@ export default function GamePage() {
                 onPeerIdReady={sendPeerId}
               />
             )}
-            {/* Desktop chat toggle */}
-            {game.status !== 'waiting' && (
+            {/* Desktop chat toggle (only for multiplayer) */}
+            {game.status !== 'waiting' && !isSinglePlayer && (
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
                 className="hidden md:block relative text-stone-400 hover:text-amber-400 transition-colors p-2"
@@ -419,7 +465,7 @@ export default function GamePage() {
         </div>
 
         {/* Game info */}
-        <GameInfo game={game} playerColor={playerColor} isMyTurn={isMyTurn} territoryData={territoryData} />
+        <GameInfo game={game} playerColor={playerColor} isMyTurn={isMyTurn} territoryData={territoryData} isSinglePlayer={isSinglePlayer} aiThinking={aiThinking} />
 
         {/* Share link (when waiting) */}
         {game.status === 'waiting' && <ShareLink gameCode={code} />}
@@ -446,6 +492,7 @@ export default function GamePage() {
             recentCaptures={recentCaptures}
             territories={(showTerritoryMarkers || game.status === 'finished') ? (territoryData?.territories || []) : []}
             territoryFading={territoryFading && game.status === 'active'}
+            gameFinished={game.status === 'finished'}
           />
         </div>
 
@@ -462,7 +509,7 @@ export default function GamePage() {
               onEstimateScore={handleShowTerritory}
               isEstimating={showTerritoryMarkers}
             />
-            {game.status === 'active' && (
+            {game.status === 'active' && !isSinglePlayer && (
               <ReactionPicker onReaction={sendReaction} />
             )}
           </div>
@@ -490,8 +537,8 @@ export default function GamePage() {
         )}
       </div>
 
-      {/* Chat panel */}
-      {game.status !== 'waiting' && (
+      {/* Chat panel (only for multiplayer) */}
+      {game.status !== 'waiting' && !isSinglePlayer && (
         <ChatPanel
           messages={chatMessages}
           playerId={playerId}

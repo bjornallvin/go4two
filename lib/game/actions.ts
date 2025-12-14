@@ -25,6 +25,29 @@ export async function createGame(boardSize: number): Promise<{ game: Game | null
   }
 }
 
+export async function createSinglePlayerGame(
+  boardSize: number,
+  playerId: string
+): Promise<{ game: Game | null; error: string | null }> {
+  const code = generateGameCode()
+  const aiPlayerId = `ai_${nanoid(8)}`
+
+  try {
+    // Create game with human as black and AI as white, already active
+    const result = await pool.query<Game>(
+      `INSERT INTO games (code, board_size, status, current_turn, black_player_id, white_player_id)
+       VALUES ($1, $2, 'active', 'black', $3, $4)
+       RETURNING *`,
+      [code, boardSize, playerId, aiPlayerId]
+    )
+
+    return { game: result.rows[0], error: null }
+  } catch (e) {
+    console.error('Error creating single-player game:', e)
+    return { game: null, error: 'Failed to create game' }
+  }
+}
+
 export async function getGameByCode(code: string): Promise<{ game: Game | null; error: string | null }> {
   try {
     const result = await pool.query<Game>(
@@ -283,6 +306,50 @@ export async function passTurn(
     console.error('Error passing turn:', e)
     return { success: false, gameOver: false, error: 'Failed to pass' }
   }
+}
+
+// Wrapper to make move using game code instead of ID
+export async function makeMoveByCode(
+  code: string,
+  playerId: string,
+  x: number,
+  y: number
+): Promise<{ move: Move | null; captures: { x: number; y: number }[]; game: Game | null; error: string | null }> {
+  const { game, error } = await getGameByCode(code)
+  if (error || !game) {
+    return { move: null, captures: [], game: null, error: error || 'Game not found' }
+  }
+
+  const result = await makeMove(game.id, playerId, x, y)
+
+  if (result.error) {
+    return { move: null, captures: [], game: null, error: result.error }
+  }
+
+  // Fetch updated game
+  const updated = await getGameByCode(code)
+  return { move: result.move, captures: result.captures, game: updated.game, error: null }
+}
+
+// Wrapper to pass turn using game code instead of ID
+export async function passTurnByCode(
+  code: string,
+  playerId: string
+): Promise<{ success: boolean; gameOver: boolean; game: Game | null; error: string | null }> {
+  const { game, error } = await getGameByCode(code)
+  if (error || !game) {
+    return { success: false, gameOver: false, game: null, error: error || 'Game not found' }
+  }
+
+  const result = await passTurn(game.id, playerId)
+
+  if (result.error) {
+    return { success: false, gameOver: false, game: null, error: result.error }
+  }
+
+  // Fetch updated game
+  const updated = await getGameByCode(code)
+  return { success: true, gameOver: result.gameOver, game: updated.game, error: null }
 }
 
 export async function resignGame(

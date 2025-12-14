@@ -20,6 +20,7 @@ interface DroppableBoardProps {
   recentCaptures?: { x: number; y: number; color: PlayerColor }[]
   territories?: { x: number; y: number; color: PlayerColor }[]
   territoryFading?: boolean
+  gameFinished?: boolean
 }
 
 const SNAP_THRESHOLD = 0.4 // Snap when within 40% of cell size
@@ -37,6 +38,7 @@ export function DroppableBoard({
   recentCaptures = [],
   territories = [],
   territoryFading = false,
+  gameFinished = false,
 }: DroppableBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -307,7 +309,7 @@ export function DroppableBoard({
       </div>
 
       {/* Stone supply - drag from here */}
-      {playerColor && (
+      {playerColor && !gameFinished && (
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-stone-800/30 px-6 py-4 rounded-2xl border border-stone-700/30">
           <span className="text-stone-400 text-sm text-center">
             {isMyTurn ? 'Your turn — drag or tap to place' : "Your friend is thinking..."}

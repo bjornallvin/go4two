@@ -16,6 +16,8 @@ interface GameInfoProps {
   playerColor: PlayerColor | null
   isMyTurn: boolean
   territoryData?: TerritoryData | null
+  isSinglePlayer?: boolean
+  aiThinking?: boolean
 }
 
 function ScoreTooltip({ color, data, show, anchorRef, onMouseEnter, onMouseLeave }: { color: 'black' | 'white'; data: { territory: number; captures: number; total: number }; show: boolean; anchorRef: React.RefObject<HTMLButtonElement | null>; onMouseEnter: () => void; onMouseLeave: () => void }) {
@@ -79,7 +81,7 @@ function ScoreTooltip({ color, data, show, anchorRef, onMouseEnter, onMouseLeave
   )
 }
 
-export function GameInfo({ game, playerColor, isMyTurn, territoryData }: GameInfoProps) {
+export function GameInfo({ game, playerColor, isMyTurn, territoryData, isSinglePlayer, aiThinking }: GameInfoProps) {
   const [showBlackTooltip, setShowBlackTooltip] = useState(false)
   const [showWhiteTooltip, setShowWhiteTooltip] = useState(false)
   const blackButtonRef = useRef<HTMLButtonElement>(null)
@@ -133,10 +135,10 @@ export function GameInfo({ game, playerColor, isMyTurn, territoryData }: GameInf
             <Stone color={game.current_turn} size={24} />
             <div>
               <p className={`text-xs ${isMyTurn ? 'text-amber-400' : 'text-stone-500'}`}>
-                {isMyTurn ? 'Your move!' : 'Waiting...'}
+                {isMyTurn ? 'Your move!' : isSinglePlayer && aiThinking ? 'Thinking...' : 'Waiting...'}
               </p>
               <p className={`font-semibold capitalize ${isMyTurn ? 'text-amber-300' : 'text-stone-400'}`}>
-                {game.current_turn}
+                {isSinglePlayer && !isMyTurn ? 'Computer' : game.current_turn}
               </p>
             </div>
           </div>

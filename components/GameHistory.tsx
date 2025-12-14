@@ -14,6 +14,7 @@ interface GameHistoryProps {
 
 export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHistoryProps) {
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState(false)
 
   // Refresh game statuses on mount
   useEffect(() => {
@@ -87,16 +88,37 @@ export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHist
 
   return (
     <div className="w-full max-w-md">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-stone-400 text-sm font-medium">Your Games</h2>
-        <button
-          onClick={onClearAll}
-          className="text-stone-500 hover:text-red-400 text-xs transition-colors"
-        >
-          Clear all
-        </button>
-      </div>
-      <div className="space-y-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left bg-stone-800/50 border border-stone-700/50 rounded-xl hover:bg-stone-800/70 transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <svg
+            className={`w-4 h-4 text-stone-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="text-stone-200 font-medium">Your Games</span>
+          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full">
+            {games.length}
+          </span>
+        </div>
+        {expanded && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation()
+              onClearAll()
+            }}
+            className="text-stone-500 hover:text-red-400 text-xs transition-colors"
+          >
+            Clear all
+          </span>
+        )}
+      </button>
+      {expanded && <div className="space-y-2 mt-2">
         {games.map((game) => (
           <div
             key={game.code}
@@ -118,6 +140,9 @@ export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHist
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-stone-200 font-medium">{game.boardSize}×{game.boardSize}</span>
+                  {game.singlePlayer && (
+                    <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full">vs AI</span>
+                  )}
                   {getStatusBadge(game.status)}
                 </div>
                 <div className="text-stone-500 text-xs mt-0.5 flex flex-wrap gap-x-2">
@@ -150,7 +175,7 @@ export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHist
             </button>
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   )
 }

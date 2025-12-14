@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGameHistory } from '@/lib/hooks/useGameHistory'
+import { usePlayerId } from '@/lib/hooks/usePlayerId'
 import { GameHistory } from '@/components/GameHistory'
 
 export default function Home() {
   const router = useRouter()
+  const playerId = usePlayerId()
   const [boardSize, setBoardSize] = useState(19)
   const [joinCode, setJoinCode] = useState('')
   const [creating, setCreating] = useState(false)
@@ -14,6 +16,7 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [password, setPassword] = useState('')
   const [authError, setAuthError] = useState('')
+  const [singlePlayer, setSinglePlayer] = useState(false)
 
   const { games, loaded, saveGame, removeGame, updateGameStatus, clearAll } = useGameHistory()
 
@@ -51,7 +54,11 @@ export default function Home() {
       const res = await fetch('/api/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardSize }),
+        body: JSON.stringify({
+          boardSize,
+          singlePlayer,
+          playerId: singlePlayer ? playerId : undefined,
+        }),
       })
       const data = await res.json()
       if (data.code) {
@@ -59,10 +66,11 @@ export default function Home() {
         saveGame({
           code: data.code,
           boardSize,
-          playerColor: null,
-          status: 'waiting',
+          playerColor: singlePlayer ? 'black' : null,
+          status: singlePlayer ? 'active' : 'waiting',
           createdAt: Date.now(),
           isCreator: true,
+          singlePlayer,
         })
         router.push(`/game/${data.code}`)
       } else {
@@ -92,6 +100,7 @@ export default function Home() {
   }
 
   return (
+    <>
     <main className="flex-1 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         {/* Header with decorative stones */}
@@ -141,12 +150,41 @@ export default function Home() {
                 </p>
               </div>
 
+              <div>
+                <label className="block text-sm text-stone-400 mb-3">Game mode</label>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSinglePlayer(false)}
+                    className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+                      !singlePlayer
+                        ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-600/25 scale-105'
+                        : 'bg-stone-700/50 text-stone-300 hover:bg-stone-600/50 hover:scale-102'
+                    }`}
+                  >
+                    vs Friend
+                  </button>
+                  <button
+                    onClick={() => setSinglePlayer(true)}
+                    className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+                      singlePlayer
+                        ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-600/25 scale-105'
+                        : 'bg-stone-700/50 text-stone-300 hover:bg-stone-600/50 hover:scale-102'
+                    }`}
+                  >
+                    vs Computer
+                  </button>
+                </div>
+                <p className="text-stone-500 text-xs mt-2 text-center">
+                  {singlePlayer ? 'Practice against a simple AI' : 'Share the game code with a friend'}
+                </p>
+              </div>
+
               <button
                 onClick={createGame}
-                disabled={creating}
+                disabled={creating || (singlePlayer && !playerId)}
                 className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:from-stone-600 disabled:to-stone-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-600/20 hover:shadow-amber-500/30 hover:scale-[1.02] active:scale-[0.98]"
               >
-                {creating ? 'Setting up the board...' : 'Create Game'}
+                {creating ? 'Setting up the board...' : singlePlayer ? 'Play vs Computer' : 'Create Game'}
               </button>
             </>
           ) : (
@@ -218,33 +256,34 @@ export default function Home() {
           />
         )}
       </div>
-
-      {/* Footer */}
-      <footer className="absolute bottom-0 left-0 right-0 py-6 px-4 text-center space-y-2">
-        <p className="text-stone-500 text-sm">
-          Crafted with care by{' '}
-          <a
-            href="https://github.com/bjornallvin"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-amber-500 hover:text-amber-400 transition-colors"
-          >
-            Björn Allvin
-          </a>
-        </p>
-        <p className="text-stone-600 text-sm">
-          <a
-            href="https://github.com/bjornallvin/go4two"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-stone-400 transition-colors"
-          >
-            View on GitHub
-          </a>
-          {' · '}
-          © {new Date().getFullYear()}
-        </p>
-      </footer>
     </main>
+
+    {/* Footer */}
+    <footer className="py-6 px-4 text-center space-y-2">
+      <p className="text-stone-500 text-sm">
+        Crafted with care by{' '}
+        <a
+          href="https://github.com/bjornallvin"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-amber-500 hover:text-amber-400 transition-colors"
+        >
+          Björn Allvin
+        </a>
+      </p>
+      <p className="text-stone-600 text-sm">
+        <a
+          href="https://github.com/bjornallvin/go4two"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-stone-400 transition-colors"
+        >
+          View on GitHub
+        </a>
+        {' · '}
+        © {new Date().getFullYear()}
+      </p>
+    </footer>
+    </>
   )
 }
