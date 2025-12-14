@@ -40,7 +40,13 @@ type ReactionMessage = {
   timestamp: number
 }
 
-type Message = CursorMessage | GameUpdateMessage | JoinMessage | LeaveMessage | ChatMessage | ReactionMessage
+type PeerIdMessage = {
+  type: 'peer_id'
+  playerId: string
+  peerId: string
+}
+
+type Message = CursorMessage | GameUpdateMessage | JoinMessage | LeaveMessage | ChatMessage | ReactionMessage | PeerIdMessage
 
 export default class GameServer implements Party.Server {
   constructor(readonly room: Party.Room) {}
@@ -81,6 +87,11 @@ export default class GameServer implements Party.Server {
         case 'chat':
         case 'reaction':
           // Broadcast chat messages and reactions to all OTHER clients
+          this.room.broadcast(message, [sender.id])
+          break
+
+        case 'peer_id':
+          // Broadcast peer ID to other players for voice chat signaling
           this.room.broadcast(message, [sender.id])
           break
 

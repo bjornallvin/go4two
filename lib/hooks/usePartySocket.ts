@@ -35,6 +35,7 @@ type PartyMessage =
   | { type: 'player_left'; playerId: string }
   | { type: 'chat'; playerId: string; message: string; timestamp: number }
   | { type: 'reaction'; playerId: string; emoji: string; timestamp: number }
+  | { type: 'peer_id'; playerId: string; peerId: string }
 
 interface UsePartySocketOptions {
   gameCode: string
@@ -47,11 +48,13 @@ interface UsePartySocketResult {
   opponentCursor: CursorPosition | null
   chatMessages: ChatMessageData[]
   activeReaction: ActiveReaction | null
+  opponentPeerId: string | null
   sendCursor: (x: number, y: number, color: PlayerColor, isDragging: boolean) => void
   sendGameUpdate: (game: unknown, moves: unknown[]) => void
   sendChat: (message: string) => void
   sendReaction: (emoji: string) => void
   clearReaction: () => void
+  sendPeerId: (peerId: string) => void
 }
 
 export function usePartySocket({
@@ -64,6 +67,7 @@ export function usePartySocket({
   const [opponentCursor, setOpponentCursor] = useState<CursorPosition | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessageData[]>([])
   const [activeReaction, setActiveReaction] = useState<ActiveReaction | null>(null)
+  const [opponentPeerId, setOpponentPeerId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!playerId || !gameCode) return
@@ -136,6 +140,13 @@ export function usePartySocket({
               playerId: data.playerId,
               timestamp: data.timestamp,
             })
+            break
+
+          case 'peer_id':
+            // Store opponent's peer ID for voice chat
+            if (data.playerId !== playerId) {
+              setOpponentPeerId(data.peerId)
+            }
             break
         }
       } catch (e) {
@@ -242,15 +253,31 @@ export function usePartySocket({
     setActiveReaction(null)
   }, [])
 
+  const sendPeerId = useCallback(
+    (peerId: string) => {
+      if (!socketRef.current || !playerId) return
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'peer_id',
+          playerId,
+          peerId,
+        })
+      )
+    },
+    [playerId]
+  )
+
   return {
     connected,
     opponentCursor,
     chatMessages,
     activeReaction,
+    opponentPeerId,
     sendCursor,
     sendGameUpdate,
     sendChat,
     sendReaction,
     clearReaction,
+    sendPeerId,
   }
 }
