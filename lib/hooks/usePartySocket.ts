@@ -14,11 +14,27 @@ export type CursorPosition = {
   isDragging: boolean
 }
 
+export type ChatMessageData = {
+  id: string
+  playerId: string
+  message: string
+  timestamp: number
+  isOwn: boolean
+}
+
+export type ActiveReaction = {
+  emoji: string
+  playerId: string
+  timestamp: number
+}
+
 type PartyMessage =
   | { type: 'cursor'; playerId: string; x: number; y: number; color: PlayerColor; isDragging: boolean }
   | { type: 'game_update'; game: unknown; moves: unknown[] }
   | { type: 'player_joined'; playerId: string }
   | { type: 'player_left'; playerId: string }
+  | { type: 'chat'; playerId: string; message: string; timestamp: number }
+  | { type: 'reaction'; playerId: string; emoji: string; timestamp: number }
 
 interface UsePartySocketOptions {
   gameCode: string
@@ -29,8 +45,13 @@ interface UsePartySocketOptions {
 interface UsePartySocketResult {
   connected: boolean
   opponentCursor: CursorPosition | null
+  chatMessages: ChatMessageData[]
+  activeReaction: ActiveReaction | null
   sendCursor: (x: number, y: number, color: PlayerColor, isDragging: boolean) => void
   sendGameUpdate: (game: unknown, moves: unknown[]) => void
+  sendChat: (message: string) => void
+  sendReaction: (emoji: string) => void
+  clearReaction: () => void
 }
 
 export function usePartySocket({
@@ -41,6 +62,8 @@ export function usePartySocket({
   const socketRef = useRef<PartySocket | null>(null)
   const [connected, setConnected] = useState(false)
   const [opponentCursor, setOpponentCursor] = useState<CursorPosition | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessageData[]>([])
+  const [activeReaction, setActiveReaction] = useState<ActiveReaction | null>(null)
 
   useEffect(() => {
     if (!playerId || !gameCode) return
@@ -89,6 +112,31 @@ export function usePartySocket({
               setOpponentCursor(null)
             }
             break
+
+          case 'chat':
+            // Add incoming chat message (from other player)
+            setChatMessages((prev) => {
+              const newMessage: ChatMessageData = {
+                id: `${data.playerId}-${data.timestamp}`,
+                playerId: data.playerId,
+                message: data.message,
+                timestamp: data.timestamp,
+                isOwn: false,
+              }
+              // Keep max 100 messages
+              const updated = [...prev, newMessage]
+              return updated.slice(-100)
+            })
+            break
+
+          case 'reaction':
+            // Show incoming reaction
+            setActiveReaction({
+              emoji: data.emoji,
+              playerId: data.playerId,
+              timestamp: data.timestamp,
+            })
+            break
         }
       } catch (e) {
         console.error('Failed to parse party message:', e)
@@ -132,10 +180,77 @@ export function usePartySocket({
     []
   )
 
+  const sendChat = useCallback(
+    (message: string) => {
+      if (!socketRef.current || !playerId) return
+      const trimmed = message.trim().slice(0, 500) // Max 500 chars
+      if (!trimmed) return
+
+      const timestamp = Date.now()
+      // Add to local messages immediately
+      setChatMessages((prev) => {
+        const newMessage: ChatMessageData = {
+          id: `${playerId}-${timestamp}`,
+          playerId,
+          message: trimmed,
+          timestamp,
+          isOwn: true,
+        }
+        const updated = [...prev, newMessage]
+        return updated.slice(-100)
+      })
+
+      // Send to other players
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'chat',
+          playerId,
+          message: trimmed,
+          timestamp,
+        })
+      )
+    },
+    [playerId]
+  )
+
+  const sendReaction = useCallback(
+    (emoji: string) => {
+      if (!socketRef.current || !playerId) return
+      const timestamp = Date.now()
+
+      // Show locally immediately
+      setActiveReaction({
+        emoji,
+        playerId,
+        timestamp,
+      })
+
+      // Send to other players
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'reaction',
+          playerId,
+          emoji,
+          timestamp,
+        })
+      )
+    },
+    [playerId]
+  )
+
+  const clearReaction = useCallback(() => {
+    setActiveReaction(null)
+  }, [])
+
   return {
     connected,
     opponentCursor,
+    chatMessages,
+    activeReaction,
     sendCursor,
     sendGameUpdate,
+    sendChat,
+    sendReaction,
+    clearReaction,
   }
 }

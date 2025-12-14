@@ -9,6 +9,7 @@ interface BoardProps {
   size: number
   moves: Move[]
   lastMove?: Move | null
+  myLastMove?: { x: number; y: number } | null
   ghostPosition?: { x: number; y: number; color: PlayerColor } | null
   onIntersectionClick?: (x: number, y: number) => void
 }
@@ -28,7 +29,7 @@ const STAR_POINTS: Record<number, [number, number][]> = {
   ],
 }
 
-export function Board({ size, moves, lastMove, ghostPosition, onIntersectionClick }: BoardProps) {
+export function Board({ size, moves, lastMove, myLastMove, ghostPosition, onIntersectionClick }: BoardProps) {
   // Build board state from moves (handles captures)
   const boardState = useMemo(() => movesToBoardState(moves), [moves])
 
@@ -105,6 +106,7 @@ export function Board({ size, moves, lastMove, ghostPosition, onIntersectionClic
           Array.from({ length: size }).map((_, x) => {
             const hasStone = boardState.has(`${x},${y}`)
             const isLastMove = lastMove?.x === x && lastMove?.y === y && lastMove?.move_type === 'place'
+            const isMyLastMove = myLastMove?.x === x && myLastMove?.y === y && hasStone && !isLastMove
 
             return (
               <div
@@ -132,6 +134,15 @@ export function Board({ size, moves, lastMove, ghostPosition, onIntersectionClic
                           width: cellSize / 3,
                           height: cellSize / 3,
                           borderColor: boardState.get(`${x},${y}`) === 'black' ? 'white' : 'black',
+                        }}
+                      />
+                    )}
+                    {isMyLastMove && (
+                      <div
+                        className="absolute rounded-full border-2 border-amber-400 animate-pulse"
+                        style={{
+                          width: cellSize / 2.5,
+                          height: cellSize / 2.5,
                         }}
                       />
                     )}

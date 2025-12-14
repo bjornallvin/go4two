@@ -129,7 +129,7 @@ export default function Home() {
           ) : (
             <>
               <p className="text-stone-400 text-sm">Enter the password to create games</p>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="password"
                   value={password}
@@ -185,6 +185,33 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="absolute bottom-0 left-0 right-0 py-6 px-4 text-center space-y-2">
+        <p className="text-stone-500 text-sm">
+          Crafted with care by{' '}
+          <a
+            href="https://github.com/bjornallvin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-500 hover:text-amber-400 transition-colors"
+          >
+            Björn Allvin
+          </a>
+        </p>
+        <p className="text-stone-600 text-sm">
+          <a
+            href="https://github.com/bjornallvin/go4two"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-stone-400 transition-colors"
+          >
+            View on GitHub
+          </a>
+          {' · '}
+          © {new Date().getFullYear()}
+        </p>
+      </footer>
     </main>
   )
 }

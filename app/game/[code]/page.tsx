@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { usePlayerId } from '@/lib/hooks/usePlayerId'
 import { useGame } from '@/lib/hooks/useGame'
 import { usePartySocket } from '@/lib/hooks/usePartySocket'
+import { useGameSounds } from '@/lib/hooks/useGameSounds'
 import { DroppableBoard } from '@/components/DroppableBoard'
 import { GameInfo } from '@/components/GameInfo'
 import { GameControls } from '@/components/GameControls'
 import { ShareLink } from '@/components/ShareLink'
+import { ReactionOverlay } from '@/components/ReactionOverlay'
+import { ReactionPicker } from '@/components/ReactionPicker'
+import { ChatPanel } from '@/components/ChatPanel'
 import type { Game, Move } from '@/lib/types'
 
 export default function GamePage() {
@@ -26,6 +30,10 @@ export default function GamePage() {
   const [joining, setJoining] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
 
+  // Sound effects
+  const { playPlace, playCapture, playTurn, playError, muted, toggleMute } = useGameSounds()
+  const prevIsMyTurn = useRef<boolean | null>(null)
+
   // Handle game updates from PartySocket
   const handleGameUpdate = useCallback(
     (newGame: unknown, newMoves: unknown[]) => {
@@ -34,12 +42,45 @@ export default function GamePage() {
     [setGameState]
   )
 
-  // PartySocket for real-time cursor and game updates
-  const { connected, opponentCursor, sendCursor, sendGameUpdate } = usePartySocket({
+  // PartySocket for real-time cursor, game updates, chat, and reactions
+  const {
+    connected,
+    opponentCursor,
+    chatMessages,
+    activeReaction,
+    sendCursor,
+    sendGameUpdate,
+    sendChat,
+    sendReaction,
+    clearReaction,
+  } = usePartySocket({
     gameCode: code,
     playerId,
     onGameUpdate: handleGameUpdate,
   })
+
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [lastSeenOpponentMessageCount, setLastSeenOpponentMessageCount] = useState(0)
+
+  // Count only opponent messages for unread badge
+  const opponentMessageCount = chatMessages.filter((msg) => !msg.isOwn).length
+  const unreadCount = isChatOpen ? 0 : Math.max(0, opponentMessageCount - lastSeenOpponentMessageCount)
+
+  // Update last seen count when chat is opened
+  useEffect(() => {
+    if (isChatOpen) {
+      setLastSeenOpponentMessageCount(opponentMessageCount)
+    }
+  }, [isChatOpen, opponentMessageCount])
+
+  // Play turn notification when it becomes my turn
+  useEffect(() => {
+    if (prevIsMyTurn.current === false && isMyTurn === true) {
+      playTurn()
+    }
+    prevIsMyTurn.current = isMyTurn
+  }, [isMyTurn, playTurn])
 
   // Auto-join game when playerId is available
   useEffect(() => {
@@ -94,8 +135,15 @@ export default function GamePage() {
         // Rollback optimistic update
         removeOptimisticMove(x, y)
         setMoveError(data.error)
+        playError()
         setTimeout(() => setMoveError(null), 3000)
       } else {
+        // Play sound based on result
+        if (data.captures && data.captures.length > 0) {
+          playCapture()
+        } else {
+          playPlace()
+        }
         // Fetch actual state and broadcast update
         const updated = await fetch(`/api/games/${code}`).then((r) => r.json())
         if (updated.game) {
@@ -119,6 +167,18 @@ export default function GamePage() {
     },
     [playerColor, sendCursor]
   )
+
+  // Calculate my last placed stone (shown when it's my turn)
+  const myLastPlaceMove = useMemo(() => {
+    if (!playerColor || !isMyTurn) return null
+    // Find my most recent 'place' move
+    for (let i = moves.length - 1; i >= 0; i--) {
+      if (moves[i].move_type === 'place' && moves[i].player_color === playerColor) {
+        return { x: moves[i].x, y: moves[i].y }
+      }
+    }
+    return null
+  }, [moves, playerColor, isMyTurn])
 
   const handlePass = async () => {
     if (!playerId || !game) return
@@ -185,8 +245,8 @@ export default function GamePage() {
   }
 
   return (
-    <main className="flex-1 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <main className={`flex-1 flex flex-col p-4 transition-[padding] ${isChatOpen ? 'md:pr-[340px]' : ''}`}>
+      <div className="max-w-4xl mx-auto space-y-6 flex-1">
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
@@ -206,11 +266,47 @@ export default function GamePage() {
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected" />
             )}
           </div>
-          <div className="w-16" />
+          <div className="flex items-center">
+            <button
+              onClick={toggleMute}
+              className="text-stone-400 hover:text-amber-400 transition-colors p-2"
+              title={muted ? 'Unmute sounds' : 'Mute sounds'}
+            >
+              {muted ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                </svg>
+              )}
+            </button>
+            {/* Desktop chat toggle */}
+            {game.status !== 'waiting' && (
+              <button
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className="hidden md:block relative text-stone-400 hover:text-amber-400 transition-colors p-2"
+                title={isChatOpen ? 'Close chat' : 'Open chat'}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                {!isChatOpen && unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center text-[10px]">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Game info */}
-        <GameInfo game={game} playerColor={playerColor} isMyTurn={isMyTurn} />
+        <GameInfo game={game} moves={moves} playerColor={playerColor} isMyTurn={isMyTurn} />
 
         {/* Share link (when waiting) */}
         {game.status === 'waiting' && <ShareLink gameCode={code} />}
@@ -222,22 +318,24 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* Board */}
+        {/* Board with reaction overlay */}
         <div className="flex justify-center">
           <DroppableBoard
             size={game.board_size}
             moves={moves}
             playerColor={playerColor}
             isMyTurn={isMyTurn}
+            myLastMove={myLastPlaceMove}
             opponentCursor={opponentCursor}
             onMove={handleMove}
             onCursorMove={handleCursorMove}
+            overlay={<ReactionOverlay reaction={activeReaction} onComplete={clearReaction} />}
           />
         </div>
 
-        {/* Controls */}
+        {/* Controls and reactions */}
         {playerColor && (
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-4">
             <GameControls
               gameCode={code}
               playerId={playerId}
@@ -246,6 +344,9 @@ export default function GamePage() {
               onPass={handlePass}
               onResign={handleResign}
             />
+            {game.status === 'active' && (
+              <ReactionPicker onReaction={sendReaction} />
+            )}
           </div>
         )}
 
@@ -263,6 +364,46 @@ export default function GamePage() {
           </div>
         )}
       </div>
+
+      {/* Chat panel */}
+      {game.status !== 'waiting' && (
+        <ChatPanel
+          messages={chatMessages}
+          playerId={playerId}
+          playerColor={playerColor}
+          onSendMessage={sendChat}
+          isOpen={isChatOpen}
+          onToggle={() => setIsChatOpen(!isChatOpen)}
+          unreadCount={unreadCount}
+        />
+      )}
+
+      {/* Footer */}
+      <footer className="py-2 text-center space-y-1">
+        <p className="text-stone-500 text-sm">
+          Crafted with care by{' '}
+          <a
+            href="https://github.com/bjornallvin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-500 hover:text-amber-400 transition-colors"
+          >
+            Björn Allvin
+          </a>
+        </p>
+        <p className="text-stone-600 text-sm">
+          <a
+            href="https://github.com/bjornallvin/go4two"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-stone-400 transition-colors"
+          >
+            View on GitHub
+          </a>
+          {' · '}
+          © {new Date().getFullYear()}
+        </p>
+      </footer>
     </main>
   )
 }

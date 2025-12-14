@@ -1,15 +1,33 @@
 'use client'
 
-import type { Game, PlayerColor } from '@/lib/types'
+import { useMemo } from 'react'
+import type { Game, Move, PlayerColor } from '@/lib/types'
 import { Stone } from './Stone'
 
 interface GameInfoProps {
   game: Game
+  moves: Move[]
   playerColor: PlayerColor | null
   isMyTurn: boolean
 }
 
-export function GameInfo({ game, playerColor, isMyTurn }: GameInfoProps) {
+export function GameInfo({ game, moves, playerColor, isMyTurn }: GameInfoProps) {
+  // Calculate captured stones
+  const captures = useMemo(() => {
+    let black = 0 // Stones captured BY black (white stones removed)
+    let white = 0 // Stones captured BY white (black stones removed)
+    for (const move of moves) {
+      if (move.move_type === 'captured') {
+        if (move.player_color === 'white') {
+          black++ // White stone was captured (by black)
+        } else {
+          white++ // Black stone was captured (by white)
+        }
+      }
+    }
+    return { black, white }
+  }, [moves])
+
   return (
     <div className="bg-stone-800/50 backdrop-blur rounded-2xl p-5 border border-stone-700/50 shadow-lg">
       <div className="flex items-center justify-between">
@@ -52,6 +70,23 @@ export function GameInfo({ game, playerColor, isMyTurn }: GameInfoProps) {
           {game.board_size}×{game.board_size}
         </div>
       </div>
+
+      {/* Captures display */}
+      {game.status !== 'waiting' && (
+        <div className="mt-4 flex items-center justify-center gap-6">
+          <div className="flex items-center gap-2 text-stone-300">
+            <Stone color="black" size={18} />
+            <span className="text-sm">captures:</span>
+            <span className="font-semibold">{captures.black}</span>
+          </div>
+          <div className="w-px h-4 bg-stone-600" />
+          <div className="flex items-center gap-2 text-stone-300">
+            <Stone color="white" size={18} />
+            <span className="text-sm">captures:</span>
+            <span className="font-semibold">{captures.white}</span>
+          </div>
+        </div>
+      )}
 
       {/* Game status messages */}
       {game.status === 'waiting' && (

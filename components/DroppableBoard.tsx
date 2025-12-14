@@ -12,9 +12,11 @@ interface DroppableBoardProps {
   moves: Move[]
   playerColor: PlayerColor | null
   isMyTurn: boolean
+  myLastMove?: { x: number; y: number } | null
   opponentCursor: CursorPosition | null
   onMove: (x: number, y: number) => void
   onCursorMove: (x: number, y: number, isDragging: boolean) => void
+  overlay?: React.ReactNode
 }
 
 const SNAP_THRESHOLD = 0.4 // Snap when within 40% of cell size
@@ -24,9 +26,11 @@ export function DroppableBoard({
   moves,
   playerColor,
   isMyTurn,
+  myLastMove,
   opponentCursor,
   onMove,
   onCursorMove,
+  overlay,
 }: DroppableBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -219,11 +223,13 @@ export function DroppableBoard({
       {/* Board container for scaling */}
       <div
         ref={containerRef}
+        className="relative"
         style={{
           width: totalBoardSize * scale,
           height: totalBoardSize * scale,
         }}
       >
+        {overlay}
         {/* Board wrapper */}
         <div
           ref={boardRef}
@@ -239,6 +245,7 @@ export function DroppableBoard({
           size={size}
           moves={moves}
           lastMove={lastMove}
+          myLastMove={myLastMove}
           ghostPosition={
             snapPosition && playerColor
               ? { x: snapPosition.x, y: snapPosition.y, color: playerColor }

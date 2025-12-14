@@ -26,7 +26,21 @@ type LeaveMessage = {
   playerId: string
 }
 
-type Message = CursorMessage | GameUpdateMessage | JoinMessage | LeaveMessage
+type ChatMessage = {
+  type: 'chat'
+  playerId: string
+  message: string
+  timestamp: number
+}
+
+type ReactionMessage = {
+  type: 'reaction'
+  playerId: string
+  emoji: string
+  timestamp: number
+}
+
+type Message = CursorMessage | GameUpdateMessage | JoinMessage | LeaveMessage | ChatMessage | ReactionMessage
 
 export default class GameServer implements Party.Server {
   constructor(readonly room: Party.Room) {}
@@ -61,6 +75,12 @@ export default class GameServer implements Party.Server {
 
         case 'game_update':
           // Broadcast game state update to all OTHER clients
+          this.room.broadcast(message, [sender.id])
+          break
+
+        case 'chat':
+        case 'reaction':
+          // Broadcast chat messages and reactions to all OTHER clients
           this.room.broadcast(message, [sender.id])
           break
 
