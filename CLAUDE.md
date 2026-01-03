@@ -10,6 +10,7 @@ npm run dev:party  # PartyKit on :1999
 npm run dev:all    # Both servers concurrently
 npm run build      # Production build
 npm run deploy:party  # Deploy PartyKit to production
+npx vercel --prod  # Deploy Next.js to Vercel
 ```
 
 ## Architecture

@@ -11,6 +11,7 @@ export interface GameHistoryEntry {
   lastPlayedAt: number
   isCreator: boolean
   singlePlayer?: boolean
+  playerId?: string // The player ID used for this game
 }
 
 const STORAGE_KEY = 'go4two_game_history'
@@ -110,7 +111,12 @@ export function useGameHistory() {
   }, [])
 
   // Update game status (useful when refreshing from API)
-  const updateGameStatus = useCallback((code: string, status: GameHistoryEntry['status'], playerColor?: 'black' | 'white' | null) => {
+  const updateGameStatus = useCallback((
+    code: string,
+    status: GameHistoryEntry['status'],
+    playerColor?: 'black' | 'white' | null,
+    playerId?: string
+  ) => {
     setGames((current) => {
       const updated = current.map((g) =>
         g.code === code
@@ -118,6 +124,7 @@ export function useGameHistory() {
               ...g,
               status,
               playerColor: playerColor !== undefined ? playerColor : g.playerColor,
+              playerId: playerId || g.playerId,
               lastPlayedAt: Date.now(),
             }
           : g

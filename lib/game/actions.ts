@@ -91,6 +91,29 @@ export async function getGameWithMoves(code: string): Promise<{ game: Game | nul
   }
 }
 
+export async function getGamesByPlayerId(playerIds: string[]): Promise<{ games: Game[]; error: string | null }> {
+  if (!playerIds || playerIds.length === 0) {
+    return { games: [], error: null }
+  }
+
+  try {
+    const query = `
+      SELECT * FROM games
+      WHERE black_player_id = ANY($1::text[])
+         OR white_player_id = ANY($1::text[])
+      ORDER BY updated_at DESC
+      LIMIT 100
+    `
+
+    const result = await pool.query<Game>(query, [playerIds])
+    console.log('getGamesByPlayerId:', playerIds, '-> found', result.rows.length, 'games')
+    return { games: result.rows, error: null }
+  } catch (e) {
+    console.error('Error fetching games by player ID:', e)
+    return { games: [], error: 'Failed to fetch games' }
+  }
+}
+
 export async function joinGame(
   code: string,
   playerId: string

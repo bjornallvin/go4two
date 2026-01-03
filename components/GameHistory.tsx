@@ -9,10 +9,11 @@ interface GameHistoryProps {
   games: GameHistoryEntry[]
   onRemove: (code: string) => void
   onClearAll: () => void
-  onRefresh: (code: string, status: GameHistoryEntry['status'], playerColor?: 'black' | 'white' | null) => void
+  onRefresh: (code: string, status: GameHistoryEntry['status'], playerColor?: 'black' | 'white' | null, playerId?: string) => void
+  allPlayerIds: string[]
 }
 
-export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHistoryProps) {
+export function GameHistory({ games, onRemove, onClearAll, onRefresh, allPlayerIds }: GameHistoryProps) {
   const [refreshing, setRefreshing] = useState<Set<string>>(new Set())
   const [expanded, setExpanded] = useState(false)
 
@@ -29,12 +30,24 @@ export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHist
               continue
             }
             if (data.game) {
-              const playerColor = data.game.black_player_id === localStorage.getItem('go4two_player_id')
-                ? 'black'
-                : data.game.white_player_id === localStorage.getItem('go4two_player_id')
-                  ? 'white'
-                  : null
-              onRefresh(game.code, data.game.status, playerColor)
+              // Check which of our player IDs matches this game
+              let playerColor: 'black' | 'white' | null = null
+              let matchedPlayerId: string | undefined
+
+              for (const id of allPlayerIds) {
+                if (data.game.black_player_id === id) {
+                  playerColor = 'black'
+                  matchedPlayerId = id
+                  break
+                }
+                if (data.game.white_player_id === id) {
+                  playerColor = 'white'
+                  matchedPlayerId = id
+                  break
+                }
+              }
+
+              onRefresh(game.code, data.game.status, playerColor, matchedPlayerId)
             }
           } catch {
             // Ignore errors
@@ -43,10 +56,10 @@ export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHist
       }
     }
 
-    if (games.length > 0) {
+    if (games.length > 0 && allPlayerIds.length > 0) {
       refreshGames()
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allPlayerIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (games.length === 0) {
     return null
@@ -157,9 +170,14 @@ export function GameHistory({ games, onRemove, onClearAll, onRefresh }: GameHist
                 </div>
               </div>
 
-              {/* Game code */}
-              <div className="text-stone-500 text-xs font-mono hidden sm:block">
-                {game.code}
+              {/* Game code and player ID */}
+              <div className="text-stone-500 text-xs font-mono hidden sm:flex flex-col items-end gap-0.5">
+                <span>{game.code}</span>
+                {game.playerId && (
+                  <span className="text-stone-600" title={`Player ID: ${game.playerId}`}>
+                    ID: {game.playerId.slice(0, 4)}...
+                  </span>
+                )}
               </div>
             </Link>
 

@@ -16,26 +16,30 @@ interface UseGameResult {
   removeOptimisticMove: (x: number, y: number) => void
 }
 
-export function useGame(code: string, playerId: string | null): UseGameResult {
+export function useGame(
+  code: string,
+  playerId: string | null,
+  isMyId: (id: string | null) => boolean
+): UseGameResult {
   const [game, setGame] = useState<Game | null>(null)
   const [moves, setMoves] = useState<Move[]>([])
   const [playerColor, setPlayerColor] = useState<PlayerColor | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const updatePlayerColor = useCallback((game: Game | null, playerId: string | null) => {
-    if (!game || !playerId) {
+  const updatePlayerColor = useCallback((game: Game | null) => {
+    if (!game) {
       setPlayerColor(null)
       return
     }
-    if (game.black_player_id === playerId) {
+    if (isMyId(game.black_player_id)) {
       setPlayerColor('black')
-    } else if (game.white_player_id === playerId) {
+    } else if (isMyId(game.white_player_id)) {
       setPlayerColor('white')
     } else {
       setPlayerColor(null)
     }
-  }, [])
+  }, [isMyId])
 
   const fetchGame = useCallback(async () => {
     try {
@@ -50,14 +54,14 @@ export function useGame(code: string, playerId: string | null): UseGameResult {
 
       setGame(data.game)
       setMoves(data.moves || [])
-      updatePlayerColor(data.game, playerId)
+      updatePlayerColor(data.game)
       setLoading(false)
       setError(null)
     } catch (e) {
       setError('Failed to fetch game')
       setLoading(false)
     }
-  }, [code, playerId, updatePlayerColor])
+  }, [code, updatePlayerColor])
 
   // Initial fetch
   useEffect(() => {
@@ -66,17 +70,17 @@ export function useGame(code: string, playerId: string | null): UseGameResult {
     }
   }, [fetchGame, playerId])
 
-  // Update player color when game or playerId changes
+  // Update player color when game changes
   useEffect(() => {
-    updatePlayerColor(game, playerId)
-  }, [game, playerId, updatePlayerColor])
+    updatePlayerColor(game)
+  }, [game, updatePlayerColor])
 
   // Function to update game state from PartySocket
   const setGameState = useCallback((newGame: Game, newMoves: Move[]) => {
     setGame(newGame)
     setMoves(newMoves)
-    updatePlayerColor(newGame, playerId)
-  }, [playerId, updatePlayerColor])
+    updatePlayerColor(newGame)
+  }, [updatePlayerColor])
 
   // Optimistic move - immediately add stone to board
   const addOptimisticMove = useCallback((x: number, y: number, color: PlayerColor) => {

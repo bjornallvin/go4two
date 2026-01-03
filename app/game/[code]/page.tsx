@@ -18,6 +18,7 @@ import { ScoreDisplay } from '@/components/ScoreDisplay'
 import { VoiceChat } from '@/components/VoiceChat'
 import { RulesModal } from '@/components/RulesModal'
 import { GameSelector } from '@/components/GameSelector'
+import { SettingsModal, SettingsButton } from '@/components/SettingsModal'
 import type { Game, Move, PlayerColor } from '@/lib/types'
 
 interface TerritoryData {
@@ -31,11 +32,12 @@ export default function GamePage() {
   const params = useParams()
   const router = useRouter()
   const code = params.code as string
-  const playerId = usePlayerId()
+  const { primaryId: playerId, isMyId, allIds, addId, removeId } = usePlayerId()
 
   const { game, moves, playerColor, isMyTurn, loading, error, refetch, setGameState, addOptimisticMove, removeOptimisticMove } = useGame(
     code,
-    playerId
+    playerId,
+    isMyId
   )
 
   const { games: gameHistory, saveGame } = useGameHistory()
@@ -147,19 +149,23 @@ export default function GamePage() {
   // Rules modal state
   const [showRules, setShowRules] = useState(false)
 
+  // Settings modal state
+  const [showSettings, setShowSettings] = useState(false)
+
   // Save game to history when game state updates
   useEffect(() => {
-    if (game) {
+    if (game && playerId) {
       saveGame({
         code,
         boardSize: game.board_size,
         playerColor,
         status: game.status,
         createdAt: new Date(game.created_at).getTime(),
-        isCreator: game.black_player_id === playerId && game.white_player_id === null,
+        isCreator: isMyId(game.black_player_id) && game.white_player_id === null,
+        playerId,
       })
     }
-  }, [game, code, playerColor, playerId, saveGame])
+  }, [game, code, playerColor, playerId, isMyId, saveGame])
 
   // Count only opponent messages for unread badge
   const opponentMessageCount = chatMessages.filter((msg) => !msg.isOwn).length
@@ -408,6 +414,7 @@ export default function GamePage() {
           </div>
           <div className="flex items-center">
             <GameSelector currentCode={code} games={gameHistory} />
+            <SettingsButton onClick={() => setShowSettings(true)} />
             <button
               onClick={() => setShowRules(true)}
               className="text-stone-400 hover:text-amber-400 transition-colors p-2"
@@ -580,6 +587,16 @@ export default function GamePage() {
 
       {/* Rules modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
+
+      {/* Settings modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        primaryId={playerId}
+        allIds={allIds}
+        addId={addId}
+        removeId={removeId}
+      />
     </main>
   )
 }

@@ -9,6 +9,11 @@ export async function POST(request: NextRequest) {
     const correctPassword = process.env.CREATE_GAME_PASSWORD
     const authToken = process.env.AUTH_TOKEN
 
+    // If password is "free", allow access without authentication
+    if (correctPassword === 'free') {
+      return NextResponse.json({ success: true })
+    }
+
     if (!correctPassword || !authToken) {
       // If not configured, allow access (dev mode)
       return NextResponse.json({ success: true })
@@ -41,7 +46,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const correctPassword = process.env.CREATE_GAME_PASSWORD
   const authToken = process.env.AUTH_TOKEN
+
+  // If password is "free", allow access without authentication
+  if (correctPassword === 'free') {
+    return NextResponse.json({ authenticated: true })
+  }
 
   if (!authToken) {
     // If not configured, allow access

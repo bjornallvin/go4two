@@ -4,9 +4,11 @@ import { createGame, createSinglePlayerGame } from '@/lib/game/actions'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check auth token
+    // Check auth token (skip if password is "free")
+    const createGamePassword = process.env.CREATE_GAME_PASSWORD
     const authToken = process.env.AUTH_TOKEN
-    if (authToken) {
+
+    if (createGamePassword !== 'free' && authToken) {
       const cookieStore = await cookies()
       const token = cookieStore.get('auth_token')?.value
       if (token !== authToken) {

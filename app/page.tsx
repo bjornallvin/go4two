@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGameHistory } from '@/lib/hooks/useGameHistory'
 import { usePlayerId } from '@/lib/hooks/usePlayerId'
 import { GameHistory } from '@/components/GameHistory'
+import { SettingsModal, SettingsButton } from '@/components/SettingsModal'
+import type { Game } from '@/lib/types'
 
 export default function Home() {
   const router = useRouter()
-  const playerId = usePlayerId()
-  const [boardSize, setBoardSize] = useState(19)
+  const { primaryId: playerId, allIds, addId, removeId, isMyId } = usePlayerId()
+  const [boardSize, setBoardSize] = useState(9)
   const [joinCode, setJoinCode] = useState('')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -17,6 +19,7 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [authError, setAuthError] = useState('')
   const [singlePlayer, setSinglePlayer] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   const { games, loaded, saveGame, removeGame, updateGameStatus, clearAll } = useGameHistory()
 
@@ -26,6 +29,108 @@ export default function Home() {
       .then((data) => setIsAuthenticated(data.authenticated))
       .catch(() => setIsAuthenticated(false))
   }, [])
+
+  // Import games for a specific player ID
+  const importGamesForPlayerId = useCallback(async (newPlayerId: string): Promise<number> => {
+    try {
+      const res = await fetch('/api/games/by-player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerIds: [newPlayerId] }),
+      })
+      const data = await res.json()
+
+      if (data.error || !data.games) {
+        console.error('Error fetching games:', data.error)
+        return 0
+      }
+
+      // Add each game to history (or update if already exists without playerId)
+      let imported = 0
+      for (const game of data.games as Game[]) {
+        // Determine player color for this ID
+        const playerColor = game.black_player_id === newPlayerId
+          ? 'black'
+          : game.white_player_id === newPlayerId
+            ? 'white'
+            : null
+
+        // Always save/update the game - saveGame handles both new and existing games
+        saveGame({
+          code: game.code,
+          boardSize: game.board_size,
+          playerColor,
+          status: game.status,
+          createdAt: new Date(game.created_at).getTime(),
+          isCreator: false,
+          singlePlayer: game.white_player_id?.startsWith('ai_'),
+          playerId: newPlayerId,
+        })
+        imported++
+      }
+
+      return imported
+    } catch (e) {
+      console.error('Failed to import games:', e)
+      return 0
+    }
+  }, [saveGame])
+
+  // Sync games for all linked player IDs
+  const syncAllGames = useCallback(async (): Promise<number> => {
+    try {
+      const res = await fetch('/api/games/by-player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerIds: allIds }),
+      })
+      const data = await res.json()
+
+      if (data.error || !data.games) {
+        console.error('Error fetching games:', data.error)
+        return 0
+      }
+
+      let synced = 0
+      for (const game of data.games as Game[]) {
+        // Find which of our IDs matches this game
+        let matchedPlayerId: string | undefined
+        let playerColor: 'black' | 'white' | null = null
+
+        for (const id of allIds) {
+          if (game.black_player_id === id) {
+            matchedPlayerId = id
+            playerColor = 'black'
+            break
+          }
+          if (game.white_player_id === id) {
+            matchedPlayerId = id
+            playerColor = 'white'
+            break
+          }
+        }
+
+        if (matchedPlayerId) {
+          saveGame({
+            code: game.code,
+            boardSize: game.board_size,
+            playerColor,
+            status: game.status,
+            createdAt: new Date(game.created_at).getTime(),
+            isCreator: false,
+            singlePlayer: game.white_player_id?.startsWith('ai_'),
+            playerId: matchedPlayerId,
+          })
+          synced++
+        }
+      }
+
+      return synced
+    } catch (e) {
+      console.error('Failed to sync games:', e)
+      return 0
+    }
+  }, [allIds, saveGame])
 
   const authenticate = async () => {
     setAuthError('')
@@ -71,6 +176,7 @@ export default function Home() {
           createdAt: Date.now(),
           isCreator: true,
           singlePlayer,
+          playerId: playerId || undefined,
         })
         router.push(`/game/${data.code}`)
       } else {
@@ -94,6 +200,7 @@ export default function Home() {
         status: 'active',
         createdAt: Date.now(),
         isCreator: false,
+        playerId: playerId || undefined,
       })
       router.push(`/game/${code}`)
     }
@@ -105,12 +212,15 @@ export default function Home() {
       <div className="max-w-md w-full space-y-8">
         {/* Header with decorative stones */}
         <div className="text-center space-y-4">
-          <div className="flex justify-center items-center gap-3">
+          <div className="flex justify-center items-center gap-3 relative">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-800 to-black shadow-lg" />
             <h1 className="text-5xl font-bold bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 bg-clip-text text-transparent">
               Go4Two
             </h1>
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-stone-100 to-stone-300 shadow-lg" />
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <SettingsButton onClick={() => setShowSettings(true)} />
+            </div>
           </div>
           <p className="text-stone-400 text-lg">
             The ancient game of Go, made simple for two friends
@@ -253,6 +363,7 @@ export default function Home() {
             onRemove={removeGame}
             onClearAll={clearAll}
             onRefresh={updateGameStatus}
+            allPlayerIds={allIds}
           />
         )}
       </div>
@@ -284,6 +395,18 @@ export default function Home() {
         © {new Date().getFullYear()}
       </p>
     </footer>
+
+    {/* Settings modal */}
+    <SettingsModal
+      isOpen={showSettings}
+      onClose={() => setShowSettings(false)}
+      primaryId={playerId}
+      allIds={allIds}
+      addId={addId}
+      removeId={removeId}
+      onImportGames={importGamesForPlayerId}
+      onSyncAllGames={syncAllGames}
+    />
     </>
   )
 }
